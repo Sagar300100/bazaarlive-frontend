@@ -1,0 +1,34 @@
+{
+  "name": "bazaarlive",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "api": "node server/index.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "@100mslive/hms-video": "^0.9.28",
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express-rate-limit": "^8.2.1",
+    "firebase": "^12.4.0",
+    "helmet": "^8.1.0",
+    "express": "^4.19.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.9.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
