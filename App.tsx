@@ -3,6 +3,7 @@ import Lenis from "lenis";
 
 import { Header } from "./components/Header";
 import { LandingPage } from "./components/LandingPage";
+import ImmersiveLanding from "./components/ImmersiveLanding";
 import SnakeCursor from "./components/SnakeCursor";
 import CinematicOverlay from "./components/CinematicOverlay";
 import GlobalAurora from "./components/GlobalAurora";
@@ -686,7 +687,7 @@ const App: React.FC = () => {
           );
         }
         return (
-          <LandingPage
+          <ImmersiveLanding
             onLoginClick={() => setIsLoginModalOpen(true)}
             onBecomeSellerClick={handleSellerOnboardingOpen}
             onNavigate={navigate}
