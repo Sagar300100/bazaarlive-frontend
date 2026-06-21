@@ -6,14 +6,14 @@ type ItemStatus = "active" | "draft" | "inactive";
 
 type InventoryItem = {
   id: string;
-  name: string; // product title
+  name: string;
   category: string;
   description: string;
   quantity: number;
   price: string;
   format: "Auction" | "Buy Now";
   condition: "New" | "Pre-owned";
-  featuredIn: string; // show id or label
+  featuredIn: string;
   shippingProfile?: string;
   hazardous?: string;
   costPerItem?: string;
@@ -25,9 +25,14 @@ type InventoryItem = {
 const Tab: React.FC<{ label: string; active: boolean; count: number; onClick: () => void }> = ({ label, active, count, onClick }) => (
   <button
     onClick={onClick}
-    className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors border ${active ? "bg-white text-black border-white" : "text-white/80 border-white/10 hover:bg-white/10"}`}
+    className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors border ${
+      active
+        ? "text-white border-[#2B6CB8]"
+        : "text-[#4A7AB5] border-[rgba(43,108,184,0.25)] hover:border-[#2B6CB8] hover:text-[#2B6CB8] bg-white"
+    }`}
+    style={active ? { background: "linear-gradient(135deg,#2B6CB8,#1A4B8C)" } : {}}
   >
-    {label} <span className="text-white/60">({count})</span>
+    {label} <span className={active ? "text-white/70" : "text-[#4A7AB5]"}>({count})</span>
   </button>
 );
 
@@ -48,16 +53,12 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ shows, onCreateProduct 
   const [search, setSearch] = useState("");
   const [bulk, setBulk] = useState(false);
   const [items, setItems] = useState<InventoryItem[]>([]);
-  const [showModal, setShowModal] = useState(false);
-  const [editing, setEditing] = useState<InventoryItem | null>(null);
 
   const loadItems = () => {
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) setItems(JSON.parse(raw));
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   };
 
   useEffect(() => {
@@ -69,9 +70,7 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ shows, onCreateProduct 
     setItems(next);
     try {
       localStorage.setItem(storageKey, JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   };
 
   const filtered = useMemo(
@@ -84,44 +83,64 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ shows, onCreateProduct 
     [status, search, items]
   );
 
-  const handleCreate = (item: InventoryItem) => {
-    saveItems([...items, item]);
-  };
-
-  const handleUpdate = (item: InventoryItem) => {
-    saveItems(items.map((it) => (it.id === item.id ? item : it)));
-  };
-
   const handleDeactivate = (id: string) => {
     saveItems(items.map((it) => (it.id === id ? { ...it, status: "inactive" } : it)));
   };
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm text-gray-400">Inventory</p>
-          <h1 className="text-3xl font-bold text-white">Manage your listings</h1>
-          </div>
+          <p className="text-sm text-[#4A7AB5] font-medium">Inventory</p>
+          <h1 className="text-3xl font-bold text-[#1B3A6B]">Manage your listings</h1>
+        </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 rounded-lg border border-white/10 text-white/90 hover:bg-white/10 text-sm">Bulk upload</button>
-          <button onClick={() => onCreateProduct?.()} className="px-4 py-2 rounded-lg bg-white text-black font-semibold text-sm hover:bg-gray-100">Create product</button>
+          <button
+            className="px-4 py-2 rounded-xl border text-sm font-semibold text-[#2B6CB8] bg-white hover:bg-blue-50 transition-colors"
+            style={{ borderColor: "rgba(43,108,184,0.3)" }}
+          >
+            Bulk upload
+          </button>
+          <button
+            onClick={() => onCreateProduct?.()}
+            className="px-4 py-2 rounded-xl text-white font-semibold text-sm transition-colors"
+            style={{ background: "linear-gradient(135deg,#2B6CB8,#1A4B8C)", boxShadow: "0 4px 14px rgba(43,108,184,0.3)" }}
+          >
+            Create product
+          </button>
         </div>
       </div>
 
+      {/* Status tabs */}
       <div className="flex flex-wrap gap-2">
-        <Tab label="Active" active={status === "active"} count={items.filter(i => i.status === "active").length} onClick={() => setStatus("active")} />
-        <Tab label="Drafts" active={status === "draft"} count={items.filter(i => i.status === "draft").length} onClick={() => setStatus("draft")} />
+        <Tab label="Active"   active={status === "active"}   count={items.filter(i => i.status === "active").length}   onClick={() => setStatus("active")} />
+        <Tab label="Drafts"   active={status === "draft"}    count={items.filter(i => i.status === "draft").length}    onClick={() => setStatus("draft")} />
         <Tab label="Inactive" active={status === "inactive"} count={items.filter(i => i.status === "inactive").length} onClick={() => setStatus("inactive")} />
       </div>
 
-      <div className="rounded-2xl bg-gradient-to-br from-[#0f1628] via-[#0c1524] to-[#0a111f] border border-white/10 shadow-2xl shadow-black/30 p-4 space-y-4">
+      {/* Main panel */}
+      <div
+        className="rounded-2xl bg-white p-4 space-y-4"
+        style={{ border: "1.5px solid rgba(43,108,184,0.15)", boxShadow: "0 4px 20px rgba(43,108,184,0.08)" }}
+      >
+        {/* Toolbar */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-wrap gap-2">
-            <button className="px-3 py-2 rounded-lg border border-white/10 text-sm text-white/80 hover:bg-white/10">Filters</button>
+            <button
+              className="px-3 py-2 rounded-xl border text-sm text-[#2B6CB8] font-semibold bg-white hover:bg-blue-50 transition-colors"
+              style={{ borderColor: "rgba(43,108,184,0.25)" }}
+            >
+              Filters
+            </button>
             <button
               onClick={() => setBulk(!bulk)}
-              className={`px-3 py-2 rounded-lg text-sm border ${bulk ? "bg-white text-black border-white" : "border-white/10 text-white/80 hover:bg-white/10"}`}
+              className="px-3 py-2 rounded-xl text-sm font-semibold transition-colors"
+              style={
+                bulk
+                  ? { background: "linear-gradient(135deg,#2B6CB8,#1A4B8C)", color: "white", border: "1.5px solid #2B6CB8" }
+                  : { background: "white", color: "#2B6CB8", border: "1.5px solid rgba(43,108,184,0.25)" }
+              }
             >
               {bulk ? "Bulk edit on" : "Bulk edit off"}
             </button>
@@ -131,58 +150,100 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ shows, onCreateProduct 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search products"
-              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white/20"
+              className="flex-1 rounded-xl px-3 py-2 text-sm text-[#1B3A6B] placeholder:text-[#4A7AB5] focus:outline-none"
+              style={{ border: "1.5px solid rgba(43,108,184,0.25)", background: "rgba(43,108,184,0.04)" }}
             />
-            <button className="px-3 py-2 rounded-lg bg-white text-black font-semibold text-sm hover:bg-gray-100">Search</button>
+            <button
+              className="px-3 py-2 rounded-xl text-white font-semibold text-sm"
+              style={{ background: "linear-gradient(135deg,#2B6CB8,#1A4B8C)" }}
+            >
+              Search
+            </button>
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/20">
-          <table className="min-w-full text-sm text-white/90">
-            <thead className="bg-white/5 text-xs uppercase tracking-wide text-gray-400">
+        {/* Table */}
+        <div className="overflow-x-auto rounded-xl" style={{ border: "1.5px solid rgba(43,108,184,0.12)" }}>
+          <table className="min-w-full text-sm">
+            <thead style={{ background: "rgba(43,108,184,0.05)" }}>
               <tr>
-                {bulk && <th className="px-3 py-3 text-left"><input type="checkbox" className="accent-orange-500" /></th>}
-                <th className="px-4 py-3 text-left">Product</th>
-                <th className="px-4 py-3 text-left">Category</th>
-                <th className="px-4 py-3 text-left">Quantity</th>
-                <th className="px-4 py-3 text-left">Price & Format</th>
-                <th className="px-4 py-3 text-left">Condition</th>
-                <th className="px-4 py-3 text-left">Show</th>
-                <th className="px-4 py-3 text-left">Actions</th>
+                {bulk && (
+                  <th className="px-3 py-3 text-left">
+                    <input type="checkbox" className="accent-[#2B6CB8]" />
+                  </th>
+                )}
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wide font-semibold text-[#4A7AB5]">Product</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wide font-semibold text-[#4A7AB5]">Category</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wide font-semibold text-[#4A7AB5]">Quantity</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wide font-semibold text-[#4A7AB5]">Price &amp; Format</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wide font-semibold text-[#4A7AB5]">Condition</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wide font-semibold text-[#4A7AB5]">Show</th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wide font-semibold text-[#4A7AB5]">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody style={{ borderTop: "1px solid rgba(43,108,184,0.1)" }}>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={bulk ? 8 : 7} className="px-4 py-12 text-center text-gray-400">
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-gray-300">╳</div>
-                      <p>No items in this view.</p>
-                      <p className="text-xs text-gray-500">Create a product to start selling.</p>
+                  <td colSpan={bulk ? 8 : 7} className="px-4 py-14 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <div
+                        className="w-14 h-14 rounded-full flex items-center justify-center text-[#4A7AB5] text-xl"
+                        style={{ background: "rgba(43,108,184,0.08)" }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                      </div>
+                      <p className="font-semibold text-[#1B3A6B]">No items in this view</p>
+                      <p className="text-xs text-[#4A7AB5]">Create a product to start selling.</p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                filtered.map((item) => (
-                  <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                filtered.map((item, idx) => (
+                  <tr
+                    key={item.id}
+                    className="transition-colors"
+                    style={{
+                      borderTop: idx > 0 ? "1px solid rgba(43,108,184,0.07)" : undefined,
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(43,108,184,0.04)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  >
                     {bulk && (
                       <td className="px-3 py-3">
-                        <input type="checkbox" className="accent-orange-500" />
+                        <input type="checkbox" className="accent-[#2B6CB8]" />
                       </td>
                     )}
-                    <td className="px-4 py-3 font-semibold">{item.name}</td>
-                    <td className="px-4 py-3 text-gray-300">{item.category}</td>
-                    <td className="px-4 py-3 text-gray-300">{item.quantity}</td>
-                    <td className="px-4 py-3 text-gray-300">
-                      <span className="font-semibold text-white">{item.price}</span>
-                      <span className="ml-2 text-xs px-2 py-1 rounded-full bg-white/10 border border-white/10">{item.format}</span>
+                    <td className="px-4 py-3 font-semibold text-[#1B3A6B]">{item.name}</td>
+                    <td className="px-4 py-3 text-[#4A7AB5]">{item.category}</td>
+                    <td className="px-4 py-3 text-[#4A7AB5]">{item.quantity}</td>
+                    <td className="px-4 py-3">
+                      <span className="font-semibold text-[#1B3A6B]">{item.price}</span>
+                      <span
+                        className="ml-2 text-xs px-2 py-0.5 rounded-full font-medium"
+                        style={{ background: "rgba(43,108,184,0.1)", color: "#2B6CB8", border: "1px solid rgba(43,108,184,0.2)" }}
+                      >
+                        {item.format}
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-300">{item.condition}</td>
-                    <td className="px-4 py-3 text-gray-300">{item.featuredIn || "—"}</td>
+                    <td className="px-4 py-3 text-[#4A7AB5]">{item.condition}</td>
+                    <td className="px-4 py-3 text-[#4A7AB5]">{item.featuredIn || "—"}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2 text-xs">
-                        <button onClick={() => { setEditing(item); setShowModal(true); }} className="px-3 py-1 rounded-lg bg-white/10 border border-white/10 hover:bg-white/20">Edit</button>
-                        <button onClick={() => handleDeactivate(item.id)} className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 hover:bg-white/15 text-red-300">Deactivate</button>
+                        <button
+                          className="px-3 py-1.5 rounded-lg font-semibold text-[#2B6CB8] hover:bg-blue-50 transition-colors"
+                          style={{ border: "1.5px solid rgba(43,108,184,0.25)" }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeactivate(item.id)}
+                          className="px-3 py-1.5 rounded-lg font-semibold text-red-500 hover:bg-red-50 transition-colors"
+                          style={{ border: "1.5px solid rgba(239,68,68,0.25)" }}
+                        >
+                          Deactivate
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -192,8 +253,8 @@ const InventoryPanel: React.FC<InventoryPanelProps> = ({ shows, onCreateProduct 
           </table>
         </div>
       </div>
-
     </div>
   );
 };
+
 export default InventoryPanel;

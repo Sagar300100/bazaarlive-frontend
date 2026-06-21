@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { getAuth, updateProfile as updateAuthProfile } from "firebase/auth";
+import { doc, setDoc, deleteDoc, getDoc, getFirestore } from "firebase/firestore";
 
 interface UserProfilePageProps {
   onNavigate: (page: string, data?: { username?: string }) => void;
@@ -182,7 +183,48 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) => {
   }, [profile]);
 
   const handleMessage = () => onNavigate("messages", { username: profile.username });
-  const handleFollow = () => alert("Followed seller (demo)");
+
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
+
+  // Check follow status on mount
+  useEffect(() => {
+    const currentUser = getAuth().currentUser;
+    if (!currentUser || !profile.handle) return;
+    const db = getFirestore();
+    getDoc(doc(db, 'follows', `${currentUser.uid}_${profile.handle}`))
+      .then(snap => setIsFollowing(snap.exists()))
+      .catch(() => {});
+  }, [profile.handle]);
+
+  const handleFollow = async () => {
+    const currentUser = getAuth().currentUser;
+    if (!currentUser) { alert('Please log in to follow sellers.'); return; }
+    if (followLoading) return;
+    setFollowLoading(true);
+    const db = getFirestore();
+    const followId = `${currentUser.uid}_${profile.handle}`;
+    try {
+      if (isFollowing) {
+        await deleteDoc(doc(db, 'follows', followId));
+        setIsFollowing(false);
+        setProfile(p => ({ ...p, followers: Math.max(0, (p.followers ?? 1) - 1) }));
+      } else {
+        await setDoc(doc(db, 'follows', followId), {
+          followerId:   currentUser.uid,
+          followerName: currentUser.displayName || currentUser.email || 'User',
+          sellerId:     profile.handle,
+          sellerName:   profile.username,
+          followedAt:   new Date().toISOString(),
+        });
+        setIsFollowing(true);
+        setProfile(p => ({ ...p, followers: (p.followers ?? 0) + 1 }));
+      }
+    } catch (e) {
+      alert('Could not update follow status. Please try again.');
+    }
+    setFollowLoading(false);
+  };
 
   const handleSave = async () => {
     try {
@@ -275,9 +317,10 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) => {
                   </button>
                   <button
                     onClick={handleFollow}
-                    className="bg-amber-400 text-black font-semibold px-4 py-2 rounded-lg text-sm hover:bg-amber-300 transition-colors"
+                    disabled={followLoading}
+                    className={`font-semibold px-4 py-2 rounded-lg text-sm transition-colors ${isFollowing ? 'bg-gray-700 text-gray-300 hover:bg-red-900 hover:text-red-300' : 'bg-amber-400 text-black hover:bg-amber-300'}`}
                   >
-                    Follow
+                    {followLoading ? '...' : isFollowing ? '✓ Following' : 'Follow'}
                   </button>
                   <button
                     onClick={() => setIsEditing(true)}

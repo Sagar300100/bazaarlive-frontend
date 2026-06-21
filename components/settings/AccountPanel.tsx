@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState } from 'react';
 import { ChevronRightIcon } from '../Icons';
 import AadhaarModal from '../modals/AadhaarModal';
@@ -47,7 +47,7 @@ const AccountPanel: React.FC = () => {
                          <div className="flex justify-between items-center">
                             <div>
                                 <h4 className="font-medium text-gray-300">Sales Tax Exemption Status</h4>
-                                <p className="text-sm text-gray-400">Save from paying tax on your purchases from BazaarLive.</p>
+                                <p className="text-sm text-gray-400">Save from paying tax on your purchases from Any & All.</p>
                             </div>
                             <button className="bg-gray-700 text-white font-bold py-2 px-5 rounded-lg hover:bg-gray-600 transition-colors">
                                 Set Up

@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState } from 'react';
 import { onboardingCategories, subCategories } from '../constants/onboardingData';
 import { HonorIcon, NoCounterfeitIcon, NoLieIcon, ShipQuicklyIcon, PreApprovalIcon, CheckmarkCircleIcon } from './Icons';
@@ -42,7 +42,7 @@ const SellerOnboardingModal: React.FC<SellerOnboardingModalProps> = ({ isOpen, o
             case 1:
                 const guidelines = [
                     { icon: <HonorIcon />, title: "Honor purchases and giveaways", description: "Don't cancel auctions for going below a desired amount." },
-                    { icon: <NoCounterfeitIcon />, title: "Do not sell counterfeits", description: "Don't sell fake items on BazaarLive. If you're unsure, just don't sell it." },
+                    { icon: <NoCounterfeitIcon />, title: "Do not sell counterfeits", description: "Don't sell fake items on Any & All. If you're unsure, just don't sell it." },
                     { icon: <NoLieIcon />, title: "Do not lie about an item", description: "Don't mislead buyers about an item's condition, value, or anything else." },
                     { icon: <ShipQuicklyIcon />, title: "Ship quickly and safely", description: "Ship items within 2 business days after a show has ended or an item is sold." },
                     { icon: <PreApprovalIcon />, title: "Pre-approval required for ages 13-17", description: "Tap here to learn more." },
@@ -64,7 +64,7 @@ const SellerOnboardingModal: React.FC<SellerOnboardingModalProps> = ({ isOpen, o
                         </div>
                          <div className="mt-6 flex items-start gap-3">
                             <input type="checkbox" id="agree" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1 h-4 w-4 rounded border-gray-600 bg-gray-700 text-orange-600 focus:ring-orange-500" />
-                            <label htmlFor="agree" className="text-sm text-gray-400">By agreeing to the rules and providing my phone number to BazaarLive, I agree and acknowledge that BazaarLive may text my number to confirm submission of my responses and notify me based on my progress.</label>
+                            <label htmlFor="agree" className="text-sm text-gray-400">By agreeing to the rules and providing my phone number to Any & All, I agree and acknowledge that Any & All may text my number to confirm submission of my responses and notify me based on my progress.</label>
                         </div>
                         <button onClick={handleNext} disabled={!agreed} className="mt-8 w-full py-3 bg-orange-600 hover:bg-orange-500 rounded-lg text-white font-bold transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed">Got it!</button>
                     </div>

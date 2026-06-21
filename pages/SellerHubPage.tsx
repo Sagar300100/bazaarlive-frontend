@@ -12,17 +12,21 @@ import AnalyticsPanel from '../components/sellerhub/AnalyticsPanel';
 import InventoryPanel from '../components/sellerhub/InventoryPanel';
 import ReferralsPanel from '../components/sellerhub/ReferralsPanel';
 import CreateProductPage from '../components/sellerhub/CreateProductPage';
+import GoLivePanel from '../components/sellerhub/GoLivePanel';
+import OBSStreamPanel from '../components/sellerhub/OBSStreamPanel';
+import AIStreamPanel from '../components/sellerhub/AIStreamPanel';
 import type { ShowData } from '../services/api';
 
-type SellerHubPageType = 
-  'home' | 'inventory' | 'offers' | 
+type SellerHubPageType =
+  'home' | 'inventory' | 'offers' |
   'shows' | 'shows_tools' | 'schedule_show' | 'orders' |
   'marketing' | 'marketing_promote' | 'marketing_coupons' |
   'shipments' | 'referrals' | 'finances' | 'membership' | 'giveaways' | 'analytics' |
-  'settings' | 'support' | 'resources' | 'create_product';
+  'settings' | 'support' | 'resources' | 'create_product' |
+  'go_live' | 'obs_stream' | 'ai_stream';
 
 const SidebarItem: React.FC<{ icon: React.ReactNode; label: string; isActive: boolean; onClick: () => void; }> = ({ icon, label, isActive, onClick }) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors group ${isActive ? 'bg-[#ff6f3c]/20 text-[#ff6f3c]' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}>
+  <button onClick={onClick} className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors group ${isActive ? 'bg-[#2B6CB8]/20 text-[#2B6CB8]' : 'text-[#1B3A6B]/70 hover:bg-[#2B6CB8]/10 hover:text-[#1B3A6B]'}`}>
     {icon}
     <span>{label}</span>
   </button>
@@ -212,6 +216,12 @@ const SellerHubPage: React.FC<SellerHubPageProps> = ({
         );
       case 'referrals':
         return <ReferralsPanel />;
+      case 'go_live':
+        return <GoLivePanel onChooseOBS={() => setActivePage('obs_stream')} onChooseAI={() => setActivePage('ai_stream')} />;
+      case 'obs_stream':
+        return <OBSStreamPanel onBack={() => setActivePage('go_live')} />;
+      case 'ai_stream':
+        return <AIStreamPanel onBack={() => setActivePage('go_live')} />;
       default: return <div className="p-8 text-gray-400">Content for {activePage}</div>;
     }
   };
@@ -243,7 +253,36 @@ const SellerHubPage: React.FC<SellerHubPageProps> = ({
           <SidebarItem icon={<HomeIcon />} label="Home" isActive={activePage === 'home'} onClick={() => setActivePage('home')} />
           <SidebarItem icon={<InventoryIcon />} label="Inventory" isActive={activePage === 'inventory'} onClick={() => setActivePage('inventory')} />
           <SidebarItem icon={<OffersIcon />} label="Offers" isActive={activePage === 'offers'} onClick={() => setActivePage('offers')} />
-          
+
+          {/* Go Live — prominent button */}
+          <button
+            onClick={() => setActivePage('go_live')}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 700,
+              fontSize: 14,
+              background: ['go_live','obs_stream','ai_stream'].includes(activePage)
+                ? 'linear-gradient(135deg,#2B6CB8,#1A4B8C)'
+                : 'linear-gradient(135deg,rgba(220,38,38,0.15),rgba(220,38,38,0.08))',
+              color: ['go_live','obs_stream','ai_stream'].includes(activePage) ? 'white' : '#ef4444',
+              boxShadow: ['go_live','obs_stream','ai_stream'].includes(activePage)
+                ? '0 4px 16px rgba(43,108,184,0.35)'
+                : 'none',
+              transition: 'all 200ms ease',
+              marginBottom: 2,
+            }}
+          >
+            <span style={{ fontSize: 16 }}>🔴</span>
+            <span>Go Live</span>
+          </button>
+
           <ExpandableSidebarItem icon={<ShowsIcon />} label="Shows" isActive={['shows', 'schedule_show', 'shows_tools', 'orders'].includes(activePage)}>
             <SidebarItem icon={<div/>} label="Shows" isActive={activePage === 'shows'} onClick={() => setActivePage('shows')} />
             <SidebarItem icon={<div/>} label="Show tools" isActive={activePage === 'shows_tools'} onClick={() => setActivePage('shows_tools')} />

@@ -9,8 +9,8 @@ import MessagesDropdown from "./MessagesDropdown";
 
 export const Logo = ({ onBack }: { onBack?: () => void }) => {
   const arrow = (
-    <span className="p-1 rounded-full hover:bg-white/10 transition-colors inline-flex">
-      <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#ff6f3c]">
+    <span className="p-1 rounded-full hover:bg-[#2B6CB8]/10 transition-colors inline-flex">
+      <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#2B6CB8]">
         <path d="m12 19-7-7 7-7" />
         <path d="M19 12H5" />
       </svg>
@@ -19,7 +19,7 @@ export const Logo = ({ onBack }: { onBack?: () => void }) => {
 
   return (
     <div className="flex items-center gap-2">
-      {onBack ? (
+      {onBack && (
         <span
           role="button"
           tabIndex={0}
@@ -31,12 +31,14 @@ export const Logo = ({ onBack }: { onBack?: () => void }) => {
         >
           {arrow}
         </span>
-      ) : (
-        arrow
       )}
-      <span className="text-2xl font-bold tracking-tight text-white">
-        Bazaar<span className="text-[#ff5f6d]">Live</span>
-      </span>
+      <div style={{ width:52, height:52, borderRadius:"50%", overflow:"hidden", background:"white", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <img
+          src="/logo.png?v=2"
+          alt="Any & All"
+          style={{ width:"90%", height:"90%", objectFit:"contain" }}
+        />
+      </div>
     </div>
   );
 };
@@ -68,16 +70,30 @@ interface HeaderProps {
   onNavigateToSellerHub: (page: "inventory" | "schedule_show" | "shows" | "home") => void;
   currentPage: string;
   onBack?: () => void;
+  /** Force a solid background colour (overrides scroll-aware transparent→frosted behaviour) */
+  bgColor?: string;
+  /** Switch text/link colours for use over dark backgrounds */
+  darkMode?: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onNavigate, isLoggedIn, onLoginClick, onLogout, onSellClick, onNavigateToSellerHub, currentPage, onBack }) => {
+export const Header: React.FC<HeaderProps> = ({ onNavigate, isLoggedIn, onLoginClick, onLogout, onSellClick, onNavigateToSellerHub, currentPage, onBack, bgColor, darkMode }) => {
+  const linkColor = darkMode ? "#FFFFFF" : "#1B3A6B";
+  const linkHoverBg = darkMode ? "rgba(255,255,255,0.12)" : undefined;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [logoMenu, setLogoMenu] = useState(false);
   const [displayName, setDisplayName] = useState<string>("S");
   const [initial, setInitial] = useState<string>("S");
+  const [scrolled, setScrolled] = useState(false);
   const dropdownContainerRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLDivElement>(null);
+
+  // Scroll-aware header
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     const auth = getAuth();
@@ -144,53 +160,80 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isLoggedIn, onLoginC
 
   const loggedOutLinks = (
     <>
-      <a href="#live" className="text-slate-600 hover:text-slate-900 transition-colors px-3 py-2 rounded-md text-sm font-semibold">Live Now</a>
-      <a href="#upcoming" className="text-slate-600 hover:text-slate-900 transition-colors px-3 py-2 rounded-md text-sm font-semibold">Upcoming</a>
-      <a href="#how-it-works" className="text-slate-600 hover:text-slate-900 transition-colors px-3 py-2 rounded-md text-sm font-semibold">How It Works</a>
-      <button onClick={onSellClick} className="text-slate-600 hover:text-slate-900 transition-colors px-3 py-2 rounded-md text-sm font-semibold">Sell</button>
+      <a href="#live" style={{ color: linkColor }} className="transition-colors px-3 py-2 rounded-md text-sm font-semibold">Live Now</a>
+      <a href="#upcoming" style={{ color: linkColor }} className="transition-colors px-3 py-2 rounded-md text-sm font-semibold">Upcoming</a>
+      <a href="#how-it-works" style={{ color: linkColor }} className="transition-colors px-3 py-2 rounded-md text-sm font-semibold">How It Works</a>
+      <button onClick={onSellClick} style={{ color: linkColor }} className="transition-colors px-3 py-2 rounded-md text-sm font-semibold">Sell</button>
     </>
   );
 
+  const inactiveLinkText = darkMode ? "text-white hover:bg-white/10" : "text-[#1B3A6B] hover:bg-[#2B6CB8]/10";
   const loggedInLinks = (
     <>
-      <button onClick={() => onNavigate("home")} className={`px-4 py-2 rounded-full text-sm font-bold hover-glow transition-colors ${currentPage === "home" ? "bg-white text-black" : "text-white hover:bg-white/10"}`}>Home</button>
-      <button onClick={() => onNavigate("browse")} className={`px-4 py-2 rounded-full text-sm font-bold hover-glow transition-colors ${currentPage === "browse" ? "bg-white text-black" : "text-white hover:bg-white/10"}`}>Browse</button>
+      <button onClick={() => onNavigate("home")} className={`px-4 py-2 rounded-full text-sm font-bold hover-glow transition-colors ${currentPage === "home" ? "bg-[#2B6CB8] text-white" : inactiveLinkText}`}>Home</button>
+      <button onClick={() => onNavigate("browse")} className={`px-4 py-2 rounded-full text-sm font-bold hover-glow transition-colors ${currentPage === "browse" ? "bg-[#2B6CB8] text-white" : inactiveLinkText}`}>Browse</button>
     </>
   );
 
   const loggedOutActions = (
     <div className="flex items-center gap-3">
-      <button onClick={onLoginClick} className="px-4 py-2 rounded-full text-sm font-semibold text-slate-700 hover:bg-slate-100">
+      <button
+        onClick={onSellClick}
+        className="px-5 py-2.5 rounded-full text-sm font-bold transition-all duration-200"
+        style={{ color: linkColor, background: linkHoverBg ? "transparent" : undefined }}
+        onMouseEnter={(e) => { if (linkHoverBg) e.currentTarget.style.background = linkHoverBg; }}
+        onMouseLeave={(e) => { if (linkHoverBg) e.currentTarget.style.background = "transparent"; }}
+      >
+        Become a Seller
+      </button>
+      <button
+        onClick={onLoginClick}
+        className="px-5 py-2.5 rounded-full text-sm font-bold transition-all duration-200"
+        style={{ color: linkColor, background: linkHoverBg ? "transparent" : undefined }}
+        onMouseEnter={(e) => { if (linkHoverBg) e.currentTarget.style.background = linkHoverBg; }}
+        onMouseLeave={(e) => { if (linkHoverBg) e.currentTarget.style.background = "transparent"; }}
+      >
         Log in
       </button>
-      <a href="#" className="px-4 py-2 rounded-full text-sm font-bold text-white" style={{ background: "linear-gradient(135deg, #ff6f3c, #ff9a62)" }}>
-        Sign up
-      </a>
+      <button
+        onClick={onLoginClick}
+        className="px-5 py-2.5 rounded-full text-sm font-bold transition-all duration-200 hover:shadow-lg"
+        style={{
+          background: darkMode ? "#FFFFFF" : "linear-gradient(135deg, #2B6CB8, #1A4B8C)",
+          color: darkMode ? "#0F2A52" : "white",
+          boxShadow: darkMode ? "0 4px 16px rgba(0,0,0,0.35)" : "0 4px 16px rgba(43,108,184,0.35)",
+        }}
+      >
+        Sign up free
+      </button>
     </div>
   );
 
   const loggedInActions = (
-    <div ref={dropdownContainerRef} className="flex items-center gap-2 text-white">
+    <div
+      ref={dropdownContainerRef}
+      className={`flex items-center gap-2 ${darkMode ? "text-white hdr-icons-dark" : "text-[#1B3A6B]"}`}
+    >
       <div className="relative">
-        <button onClick={() => toggleDropdown("plus")} className="p-2 rounded-full hover:bg-white/10 transition-colors icon-hover" aria-label="Create">
+        <button onClick={() => toggleDropdown("plus")} className="p-2 rounded-full hover:bg-[#2B6CB8]/10 transition-colors icon-hover" aria-label="Create">
           <PlusCircleIcon />
         </button>
         {openDropdown === "plus" && <PlusDropdown onNavigateToSellerHub={onNavigateToSellerHub} />}
       </div>
       <div className="relative">
-        <button onClick={() => toggleDropdown("activity")} className="p-2 rounded-full hover:bg-white/10 transition-colors icon-hover" aria-label="Activity">
+        <button onClick={() => toggleDropdown("activity")} className="p-2 rounded-full hover:bg-[#2B6CB8]/10 transition-colors icon-hover" aria-label="Activity">
           <HeartIcon />
         </button>
         {openDropdown === "activity" && <ActivityDropdown />}
       </div>
       <div className="relative">
-        <button onClick={() => toggleDropdown("messages")} className="p-2 rounded-full hover:bg-white/10 transition-colors icon-hover" aria-label="Messages">
+        <button onClick={() => toggleDropdown("messages")} className="p-2 rounded-full hover:bg-[#2B6CB8]/10 transition-colors icon-hover" aria-label="Messages">
           <ChatBubbleIcon />
         </button>
         {openDropdown === "messages" && <MessagesDropdown />}
       </div>
       <div className="relative">
-        <button onClick={() => toggleDropdown("notifications")} className="p-2 rounded-full hover:bg-white/10 transition-colors icon-hover" aria-label="Notifications">
+        <button onClick={() => toggleDropdown("notifications")} className="p-2 rounded-full hover:bg-[#2B6CB8]/10 transition-colors icon-hover" aria-label="Notifications">
           <BellIcon />
         </button>
         {openDropdown === "notifications" && <NotificationsDropdown />}
@@ -198,7 +241,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isLoggedIn, onLoginC
       <div className="relative">
         <button
           onClick={() => toggleDropdown("profile")}
-          className="w-10 h-10 rounded-full bg-slate-900 text-white font-semibold flex items-center justify-center hover:bg-slate-800 transition-colors"
+          className={`w-10 h-10 rounded-full font-semibold flex items-center justify-center transition-colors ${darkMode ? "bg-white text-[#0B1F3F] hover:bg-white/90 border border-white/30" : "bg-slate-900 text-white hover:bg-slate-800"}`}
           aria-label="Account menu"
         >
           {initial}
@@ -216,7 +259,25 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isLoggedIn, onLoginC
   );
 
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-md bg-black/70 border-b border-[#ffffff14]">
+    <header
+      className="sticky top-0 transition-all duration-300"
+      style={{
+        zIndex: 9100, // above CinematicOverlay (8999-9001)
+        background: bgColor && bgColor !== "transparent"
+          ? bgColor
+          : (darkMode
+              ? "#0B1F3F"
+              : (scrolled ? "rgba(248,250,252,0.85)" : "transparent")),
+        backdropFilter: !darkMode && scrolled ? "blur(24px) saturate(140%)" : "none",
+        WebkitBackdropFilter: !darkMode && scrolled ? "blur(24px) saturate(140%)" : "none",
+        borderBottom: darkMode
+          ? "1px solid rgba(255,255,255,0.06)"
+          : (scrolled ? "1px solid rgba(43,108,184,0.14)" : "1px solid transparent"),
+        boxShadow: darkMode
+          ? "0 8px 32px rgba(0,0,0,0.35)"
+          : (scrolled ? "0 4px 24px rgba(43,108,184,0.08)" : "none"),
+      }}
+    >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-8 relative">
@@ -224,7 +285,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isLoggedIn, onLoginC
               <div
                 role="button"
                 tabIndex={0}
-                aria-label="BazaarLive Home"
+                aria-label="Any & All Home"
                 onClick={() => setLogoMenu((prev) => !prev)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") setLogoMenu((prev) => !prev);
@@ -260,8 +321,8 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isLoggedIn, onLoginC
                 </div>
                 <input
                   type="text"
-                  placeholder="Search BazaarLive"
-                  className="w-full rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-[#ff6f3c] bg-white/10 border border-[#ffffff1a] text-white placeholder:text-slate-400"
+                  placeholder="Search Any & All"
+                  className={`w-full rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-[#2B6CB8] ${darkMode ? "bg-white/10 border border-white/15 text-white placeholder:text-white/50" : "bg-white/60 border border-[#2B6CB8]/25 text-[#1B3A6B] placeholder:text-[#4A7AB5]"}`}
                 />
               </div>
             </div>
@@ -274,7 +335,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isLoggedIn, onLoginC
           <div className="-mr-2 flex md:hidden">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="bg-white/10 inline-flex items-center justify-center p-2 rounded-md text-white hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-[#ff6f3c]"
+              className="bg-[#2B6CB8]/10 inline-flex items-center justify-center p-2 rounded-md text-[#1B3A6B] hover:bg-[#2B6CB8]/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-[#2B6CB8]"
               aria-controls="mobile-menu"
               aria-expanded="false"
             >
@@ -286,7 +347,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isLoggedIn, onLoginC
       </div>
 
       {isMenuOpen && (
-        <div className="md:hidden bg-black border-t border-[#ffffff1a]" id="mobile-menu">
+        <div className="md:hidden bg-white border-t border-[#2B6CB8]/18" id="mobile-menu">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             {isLoggedIn ? loggedInLinks : loggedOutLinks}
           </div>
@@ -299,7 +360,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isLoggedIn, onLoginC
                   <button onClick={() => { onLoginClick(); setIsMenuOpen(false); }} className="w-full text-center bg-slate-100 text-slate-900 px-3 py-2 rounded-md text-base font-semibold transition-colors">
                     Log in
                   </button>
-                  <a href="#" className="w-full text-center text-white px-4 py-2 rounded-md text-base font-bold" style={{ background: "linear-gradient(135deg, #ff6f3c, #ff9a62)" }}>
+                  <a href="#" className="w-full text-center text-white px-4 py-2 rounded-md text-base font-bold" style={{ background: "linear-gradient(135deg, #2B6CB8, #1A4B8C)" }}>
                     Sign up
                   </a>
                 </>

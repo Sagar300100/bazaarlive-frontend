@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
+import Lenis from "lenis";
 
 import { Header } from "./components/Header";
-import { Hero } from "./components/Hero";
-import { HowItWorks, Highlights } from "./components/Sections";
+import { LandingPage } from "./components/LandingPage";
+import SnakeCursor from "./components/SnakeCursor";
+import CinematicOverlay from "./components/CinematicOverlay";
+import GlobalAurora from "./components/GlobalAurora";
 import AccountSettingsPage from "./pages/AccountSettingsPage";
-import { LoginModal } from "./components/LoginModal";
+import LoginModalV2 from "./components/LoginModalV2";
 import OnboardingModal from "./components/OnboardingModal";
 import SellerOnboardingModal from "./components/SellerOnboardingModal";
 import SellerHubPage from "./pages/SellerHubPage";
@@ -213,144 +216,63 @@ const ResetPasswordCard: React.FC<{
   );
 };
 
-/* ---------------- Footer + CTA ---------------- */
-const CallToAction: React.FC = () => (
-  <section className="bg-orange-600">
-    <div className="max-w-4xl mx-auto text-center py-16 px-4 sm:py-20 sm:px-6 lg:px-8">
-      <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
-        <span className="block">Ready to dive in?</span>
-        <span className="block text-orange-200">Join BazaarLive today.</span>
-      </h2>
-      <p className="mt-4 text-lg leading-6 text-orange-100">
-        Sign up now to start bidding, buying, and selling in the most exciting live marketplace in
-        India.
-      </p>
-      <a
-        href="#"
-        className="mt-8 w-full inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-orange-600 bg-white hover:bg-orange-50 sm:w-auto"
-      >
-        Sign up for free
-      </a>
-    </div>
-  </section>
-);
-
+/* ---------------- Footer (used on inner pages) ---------------- */
 const Footer: React.FC<{ onNavigate: (page: string, data?: any) => void }> = ({ onNavigate }) => (
-  <footer className="bg-gray-800" aria-labelledby="footer-heading">
-    <h2 id="footer-heading" className="sr-only">
-      Footer
-    </h2>
-    <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:py-16 lg:px-8">
-      <div className="xl:grid xl:grid-cols-3 xl:gap-8">
-        <div className="space-y-8 xl:col-span-1">
-          <div className="flex items-center gap-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="28"
-              height="28"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-orange-500"
-            >
-              <path d="m12 19-7-7 7-7" />
-              <path d="M19 12H5" />
-            </svg>
-            <span className="text-2xl font-bold text-white tracking-tight">
-              Bazaar<span className="text-orange-500">Live</span>
-            </span>
-          </div>
-          <p className="text-gray-400 text-base">The premier live shopping marketplace for India.</p>
+  <footer style={{ background:"#060C1C" }} aria-labelledby="footer-heading">
+    <h2 id="footer-heading" className="sr-only">Footer</h2>
+    <div className="max-w-6xl mx-auto px-6 lg:px-10 py-12">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+        <div className="col-span-2 md:col-span-1">
+          <img src="/logo.png" alt="Any & All" className="h-10 w-auto object-contain mb-3" />
+          <p style={{ color:"rgba(255,255,255,0.38)", fontSize:13, lineHeight:1.7 }}>India's premier live shopping marketplace.</p>
         </div>
-        <div className="mt-12 grid grid-cols-2 gap-8 xl:mt-0 xl:col-span-2">
-          <div className="md:grid md:grid-cols-2 md:gap-8">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">
-                Support
-              </h3>
-              <ul role="list" className="mt-4 space-y-4">
-                <li>
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      onNavigate("help-center");
-                    }}
-                    className="text-base text-gray-300 hover:text-white"
-                  >
-                    Help Center
+        {[
+          { title:"Support", links:[
+            { label:"Help Center", nav:"help-center" },
+            { label:"Contact Us",  nav:""             },
+            { label:"FAQ",         nav:""             },
+          ]},
+          { title:"Company", links:[
+            { label:"About Us", nav:"about" },
+            { label:"Careers",  nav:""      },
+            { label:"Blog",     nav:""      },
+          ]},
+          { title:"Legal", links:[
+            { label:"Privacy", nav:"" },
+            { label:"Terms",   nav:"" },
+          ]},
+        ].map(col => (
+          <div key={col.title}>
+            <h3 style={{ color:"rgba(255,255,255,0.4)", fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:14 }}>{col.title}</h3>
+            <ul className="space-y-2.5">
+              {col.links.map(l => (
+                <li key={l.label}>
+                  <a href="#"
+                    style={{ color:"rgba(255,255,255,0.38)", fontSize:14 }}
+                    onMouseEnter={e => (e.currentTarget.style.color="white")}
+                    onMouseLeave={e => (e.currentTarget.style.color="rgba(255,255,255,0.38)")}
+                    onClick={e => { e.preventDefault(); if(l.nav) onNavigate(l.nav); }}>
+                    {l.label}
                   </a>
                 </li>
-                <li>
-                  <a href="#" className="text-base text-gray-300 hover:text-white">
-                    For Sellers
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-base text-gray-300 hover:text-white">
-                    Contact Us
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div className="mt-12 md:mt-0">
-              <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">
-                Company
-              </h3>
-              <ul role="list" className="mt-4 space-y-4">
-                <li>
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      onNavigate("about");
-                    }}
-                    className="text-base text-gray-300 hover:text-white"
-                  >
-                    About
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-base text-gray-300 hover:text-white">
-                    Careers
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-base text-gray-300 hover:text-white">
-                    Press
-                  </a>
-                </li>
-              </ul>
-            </div>
+              ))}
+            </ul>
           </div>
-          <div className="md:grid md:grid-cols-2 md:gap-8">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">
-                Legal
-              </h3>
-              <ul role="list" className="mt-4 space-y-4">
-                <li>
-                  <a href="#" className="text-base text-gray-300 hover:text-white">
-                    Privacy
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-base text-gray-300 hover:text-white">
-                    Terms
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
-      <div className="mt-12 border-t border-gray-700 pt-8">
-        <p className="text-base text-gray-400 xl:text-center">
-          &copy; {new Date().getFullYear()} BazaarLive. All rights reserved.
-        </p>
+      <div className="flex flex-col sm:flex-row items-center justify-between pt-6 gap-3"
+        style={{ borderTop:"1px solid rgba(255,255,255,0.07)" }}>
+        <p style={{ color:"rgba(255,255,255,0.25)", fontSize:13 }}>© {new Date().getFullYear()} Any & All Inc. All rights reserved.</p>
+        <div className="flex gap-5">
+          {["Privacy","Terms"].map(l => (
+            <a key={l} href="#"
+              style={{ color:"rgba(255,255,255,0.25)", fontSize:13 }}
+              onMouseEnter={e => (e.currentTarget.style.color="rgba(255,255,255,0.65)")}
+              onMouseLeave={e => (e.currentTarget.style.color="rgba(255,255,255,0.25)")}>
+              {l}
+            </a>
+          ))}
+        </div>
       </div>
     </div>
   </footer>
@@ -368,6 +290,23 @@ const initialFiltersState: Filters = {
 
 /* ======================== APP ======================== */
 const App: React.FC = () => {
+  // Buttery smooth scroll (Lenis) — applies globally
+  useEffect(() => {
+    const lenis = new Lenis({
+      duration: 1.1,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      wheelMultiplier: 1,
+    });
+    let raf = 0;
+    const tick = (time: number) => {
+      lenis.raf(time);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(raf); lenis.destroy(); };
+  }, []);
+
   const [currentPage, setCurrentPage] = useState("home");
   const navStack = React.useRef<string[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -474,6 +413,28 @@ const App: React.FC = () => {
     } else {
       setIsLoadingShows(false);
     }
+  }, [isLoggedIn]);
+
+  // ── Auto-refresh shows so buyers see streams as they go live ──
+  // Polls every 20 seconds AND listens for the custom event from AIStreamPanel
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const refresh = () =>
+      fetchScheduledShows()
+        .then(setScheduledShows)
+        .catch(() => {});
+
+    // Poll every 20s — catches streams started on other devices/accounts
+    const pollInterval = setInterval(refresh, 20_000);
+
+    // Also refresh immediately when AI stream goes live/ends in this browser
+    window.addEventListener('anyandall:showsChanged', refresh);
+
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('anyandall:showsChanged', refresh);
+    };
   }, [isLoggedIn]);
 
   // Deep links
@@ -704,6 +665,7 @@ const App: React.FC = () => {
           onNavigateToSellerHub={handleNavigateToSellerHub}
           currentPage={currentPage}
           onBack={handleBackNav}
+          darkMode
         />
               {isLoadingShows ? (
                 <div className="flex justify-center items-center h-[calc(100vh-200px)]">
@@ -724,23 +686,13 @@ const App: React.FC = () => {
           );
         }
         return (
-          <>
-            <Header
-              onNavigate={navigate}
-              isLoggedIn={isLoggedIn}
-              onLoginClick={() => setIsLoginModalOpen(true)}
-              onLogout={handleLogout}
-              onSellClick={handleSellerOnboardingOpen}
-              onNavigateToSellerHub={handleNavigateToSellerHub}
-              currentPage={currentPage}
-            />
-            <main>
-              <Hero onBecomeSellerClick={handleSellerOnboardingOpen} />
-              <HowItWorks />
-              <CallToAction />
-              <Footer onNavigate={navigate} />
-            </main>
-          </>
+          <LandingPage
+            onLoginClick={() => setIsLoginModalOpen(true)}
+            onBecomeSellerClick={handleSellerOnboardingOpen}
+            onNavigate={navigate}
+            onNavigateToSellerHub={handleNavigateToSellerHub}
+            currentPage={currentPage}
+          />
         );
 
       case "browse":
@@ -903,7 +855,11 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="bg-gray-900 min-h-screen">
+    <div className="bg-gray-900 min-h-screen" style={{ position: "relative" }}>
+      <GlobalAurora />
+      <SnakeCursor />
+      <CinematicOverlay />
+
       {authNotice && (
         <div className="bg-yellow-400 text-black text-center py-2 px-4 text-sm">
           {authNotice}
@@ -934,12 +890,11 @@ const App: React.FC = () => {
         />
       )}
 
-      <LoginModal
+      <LoginModalV2
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
         onLoginSuccess={handleLoginSuccess}
         openInForgot={false}
-        prefillResetToken={undefined}
       />
 
       <OnboardingModal

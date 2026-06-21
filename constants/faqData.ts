@@ -44,7 +44,7 @@ export const faqData: { [key: string]: FaqCategory } = {
             `
           },
           {
-            title: 'BazaarLive Buyer Protection Policy',
+            title: 'Any & All Buyer Protection Policy',
             slug: 'buyer-protection',
             content: `
               <h2>Our Commitment to You</h2>
@@ -54,7 +54,7 @@ export const faqData: { [key: string]: FaqCategory } = {
                 <li>Your item is significantly not as described by the seller.</li>
                 <li>You receive a counterfeit item.</li>
               </ul>
-              <p>All branded items are sent to our warehouse for verification first. Our team checks for authenticity and adds a BazaarLive authentication tag before shipping it to you. Unbranded items also come to our warehouse for a quality check to ensure they meet our standards.</p>
+              <p>All branded items are sent to our warehouse for verification first. Our team checks for authenticity and adds a Any & All authentication tag before shipping it to you. Unbranded items also come to our warehouse for a quality check to ensure they meet our standards.</p>
               <p>If you have an issue, please contact support through your purchase history within 3 days of receiving the item.</p>
             `
           },
@@ -85,7 +85,7 @@ export const faqData: { [key: string]: FaqCategory } = {
             `
           },
            {
-            title: 'Updating Your BazaarLive Username',
+            title: 'Updating Your Any & All Username',
             slug: 'update-username',
             content: `
               <p>You can update your username at any time in your Account Settings. Your username is how other users will see you in chat and on your profile.</p>
@@ -124,10 +124,10 @@ export const faqData: { [key: string]: FaqCategory } = {
                 {
                     title: 'Setting up your Mobile App Notification Settings',
                     slug: 'mobile-notifications',
-                    content: '<p>To manage your notifications, go to the settings within the BazaarLive mobile app. You can customize alerts for when shows go live, when you are outbid, and for messages.</p>'
+                    content: '<p>To manage your notifications, go to the settings within the Any & All mobile app. You can customize alerts for when shows go live, when you are outbid, and for messages.</p>'
                 },
                 {
-                    title: 'Managing Multiple Accounts on BazaarLive',
+                    title: 'Managing Multiple Accounts on Any & All',
                     slug: 'multiple-accounts',
                     content: '<p>Users are generally permitted to have only one buying account. Operating multiple accounts to circumvent limits or policies may result in suspension. Sellers may have separate buyer and seller accounts with approval.</p>'
                 },
@@ -142,12 +142,12 @@ export const faqData: { [key: string]: FaqCategory } = {
                     content: '<p>Your phone number can be updated in your Account Settings. You will be required to verify the new number via an OTP code.</p>'
                 },
                 {
-                    title: 'Deleting Your BazaarLive Account',
+                    title: 'Deleting Your Any & All Account',
                     slug: 'delete-account',
                     content: '<p>You can request to delete your account from the "Account" section in your settings. Please note that this action is permanent and cannot be undone. All your data will be removed in accordance with our privacy policy.</p>'
                 },
                 {
-                    title: 'Contact BazaarLive support',
+                    title: 'Contact Any & All support',
                     slug: 'contact-support',
                     content: '<p>If you need help, you can contact our support team through the "Help Center" or via the "Contact Us" link in your account settings. We are here to help!</p>'
                 }

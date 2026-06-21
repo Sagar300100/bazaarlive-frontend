@@ -1,10 +1,10 @@
-import React from 'react';
+﻿import React from 'react';
 
 const MessagesDropdown: React.FC = () => {
     const messages = [
         { id: 1, user: 'labelvaults', text: 'Hey, is that vintage jacket still available?', avatar: 'LV' },
         { id: 2, user: 'fleshy_swordfight', text: 'Thanks for the raid last night!', avatar: 'FS' },
-        { id: 3, user: 'BazaarLiveSupport', text: 'Your payout has been processed.', avatar: 'BL' },
+        { id: 3, user: 'Any & AllSupport', text: 'Your payout has been processed.', avatar: 'BL' },
     ];
 
     return (

@@ -1,5 +1,8 @@
-import React from "react";
+﻿import React, { useState, useEffect } from "react";
+import { Sparkles, Heart, ChevronRight, Globe } from "lucide-react";
 import { CATEGORIES } from "../../constants/filterData";
+import { getAuth } from "firebase/auth";
+import { collection, getDocs, getFirestore, query, where } from "firebase/firestore";
 
 export interface Filters {
   categories: string[];
@@ -8,6 +11,8 @@ export interface Filters {
   brands: string[];
   sellerRating: string | null;
   shippedFrom: string[];
+  forYou?: boolean;
+  followedOnly?: boolean;
 }
 
 interface SidebarProps {
@@ -23,6 +28,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setFilters,
   onNavigate,
 }) => {
+  const [followedSellers, setFollowedSellers] = useState<string[]>([]);
+
+  // Load followed sellers from Firebase
+  useEffect(() => {
+    const user = getAuth().currentUser;
+    if (!user) return;
+    const db = getFirestore();
+    const q  = query(collection(db, 'follows'), where('followerId', '==', user.uid));
+    getDocs(q).then(snap => {
+      setFollowedSellers(snap.docs.map(d => d.data().sellerId as string));
+    }).catch(() => {});
+  }, []);
+
   const handleFilterChange = (filterKey: keyof Filters, value: string) => {
     setFilters((prev) => {
       const currentSelection = prev[filterKey];
@@ -38,29 +56,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
     });
   };
 
+  const setTab = (tab: 'for_you' | 'followed') => {
+    setFilters(prev => ({
+      ...prev,
+      forYou:       tab === 'for_you',
+      followedOnly: tab === 'followed',
+    }));
+  };
+
   const categories = CATEGORIES;
-  const primaryLinks = [
-    { label: "For You" },
-    { label: "Followed Hosts" },
-  ];
   const storedName = (localStorage.getItem("bl_user") || "there").trim();
   const displayName = storedName.length ? storedName : "there";
+  const activeTab = filters.followedOnly ? 'followed' : 'for_you';
 
   return (
-    <aside className="hidden md:flex flex-col w-72 sidebar-whatnot glass">
+    <aside className="hidden md:flex flex-col w-full sidebar-whatnot glass">
       <div className="mb-6 leading-tight">
         <p className="text-lg font-bold text-white capitalize">Hi {displayName}!</p>
       </div>
 
       <div className="flex flex-col gap-2 mb-4">
-        {primaryLinks.map((item, idx) => (
-          <button
-            key={item.label}
-            className={`nav-chip ${idx === 0 ? "active" : ""}`}
-          >
-            {item.label}
-          </button>
-        ))}
+        <button
+          onClick={() => setTab('for_you')}
+          className={`nav-chip ${activeTab === 'for_you' ? 'active' : ''}`}
+        >
+          <span className="nav-chip-icon"><Sparkles size={14} strokeWidth={2.2} /></span>
+          <span className="nav-chip-label">For You</span>
+          <ChevronRight size={14} className="nav-chip-arrow" />
+        </button>
+        <button
+          onClick={() => setTab('followed')}
+          className={`nav-chip ${activeTab === 'followed' ? 'active' : ''}`}
+        >
+          <span className="nav-chip-icon"><Heart size={14} strokeWidth={2.2} fill="currentColor" /></span>
+          <span className="nav-chip-label">Followed Hosts</span>
+          {followedSellers.length > 0 && (
+            <span className="nav-chip-badge">{followedSellers.length}</span>
+          )}
+          <ChevronRight size={14} className="nav-chip-arrow" />
+        </button>
       </div>
 
       <div className="mt-4">
@@ -107,24 +141,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
         <div>
           <button className="flex items-center gap-2 hover:text-gray-800">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9V3"
-              />
-            </svg>
+            <Globe size={14} strokeWidth={2} />
             English
           </button>
         </div>
-        <p className="text-xs text-gray-500">&copy; {new Date().getFullYear()} BazaarLive Inc.</p>
+        <p className="text-xs text-gray-500">&copy; {new Date().getFullYear()} Any & All Inc.</p>
       </div>
     </aside>
   );

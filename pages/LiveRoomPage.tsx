@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   CalendarIcon, MoreIcon, SoundIcon, NotesIcon, ShareIcon, CloseIcon,
   PromoteIcon, SellerToolsIcon, BugIcon, EditIcon, PollIcon, RaidIcon,
@@ -9,7 +9,7 @@ import { Logo } from '../components/Header';
 import type { ShowData } from '../services/api';
 import { fetchStreamToken, startLocalPreview, joinHmsRoom } from '../services/streaming';
 
-// 🔗 Firestore chat (relative path - file lives in /services)
+// ðŸ”— Firestore chat (relative path - file lives in /services)
 import { sendMessage as fsSend } from '../services/chatFirestore';
 
 const MoreMenu: React.FC<{
@@ -74,8 +74,8 @@ const ShareModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
       <h2 className="text-xl font-bold text-white mb-4">Share Show</h2>
       <p className="text-gray-400 mb-4 text-sm">Share your stream link to bring in viewers!</p>
       <div className="flex">
-        <input type="text" readOnly value="https://bazaarlive.example.com/live/sagsin" className="w-full bg-gray-700 rounded-l-md px-3 text-sm" />
-        <button onClick={() => navigator.clipboard.writeText('https://bazaarlive.example.com/live/sagsin')} className="bg-orange-600 hover:bg-orange-500 text-white font-bold px-4 py-2 rounded-r-md">Copy</button>
+        <input type="text" readOnly value="https://anyandall.live/live/sagsin" className="w-full bg-gray-700 rounded-l-md px-3 text-sm" />
+        <button onClick={() => navigator.clipboard.writeText('https://anyandall.live/live/sagsin')} className="bg-orange-600 hover:bg-orange-500 text-white font-bold px-4 py-2 rounded-r-md">Copy</button>
       </div>
       <button onClick={onClose} className="mt-6 w-full py-2 bg-gray-600 hover:bg-gray-500 rounded-lg font-bold">Done</button>
     </div>
@@ -450,7 +450,7 @@ const LiveRoomPage: React.FC<LiveRoomPageProps> = ({ show, onExit, onEditShow, o
                   {currentList.map(p => (
                     <div key={p.id} onClick={() => leftTab !== 'sold' && setSelectedProductId(p.id)} className={`p-2 rounded-md ${leftTab !== 'sold' ? 'bg-gray-800 hover:bg-gray-700 cursor-pointer' : 'bg-gray-800'}`}>
                       <p className="font-bold text-sm truncate">{p.name}</p>
-                      <p className="text-xs text-gray-400">{leftTab === 'sold' ? `Sold for: ₹${p.startingPrice}` : `Price: ₹${p.startingPrice}`}</p>
+                      <p className="text-xs text-gray-400">{leftTab === 'sold' ? `Sold for: â‚¹${p.startingPrice}` : `Price: â‚¹${p.startingPrice}`}</p>
                     </div>
                   ))}
                 </div>
@@ -477,7 +477,7 @@ const LiveRoomPage: React.FC<LiveRoomPageProps> = ({ show, onExit, onEditShow, o
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
       `}</style>
 
-      <header className="sticky top-0 z-30 px-8 py-4 flex items-center justify-between border-b border-[var(--border)] bg-[#050507dd] backdrop-blur-lg">
+      <header className="sticky top-0 z-30 px-8 py-4 flex items-center justify-between border-b border-[var(--border)] bg-[rgba(240,237,232,0.87)] backdrop-blur-lg">
         <div className="flex items-center gap-4">
           <button onClick={() => onNavigate('home')} aria-label="Go to homepage" className="pill-btn">
             <Logo />

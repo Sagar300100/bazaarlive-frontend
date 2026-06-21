@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+﻿import React, { useEffect, useRef, useState } from "react";
 import { getAuth } from "firebase/auth";
 import { subscribeDm, sendDm, getThreadId } from "../services/dmFirestore";
 
@@ -36,15 +36,15 @@ const seedConversations: Record<string, Conversation> = {
     online: false,
     messages: [{ id: 1, sender: "fleshy_swordfight", text: "Thanks for the raid last night! It was awesome." }],
   },
-  bazaarlivesupport: {
-    id: "bazaarlivesupport",
-    user: "BazaarLiveSupport",
-    avatar: "BL",
+  anyandallsupport: {
+    id: "anyandallsupport",
+    user: "Any & All Support",
+    avatar: "AA",
     online: true,
     messages: [
       {
         id: 1,
-        sender: "BazaarLiveSupport",
+        sender: "Any & All Support",
         text: "Your payout has been processed. It should reflect in your account within 3-5 business days.",
       },
     ],

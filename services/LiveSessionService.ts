@@ -150,6 +150,40 @@ class LiveSessionService {
   public isSessionLive = () => this.isLive;
   public getMediaStream = () => this.mediaStream;
 
+  /** Called by buyer's WinnerPaymentModal when payment is confirmed.
+   *  Notifies the seller's payment window to proceed. */
+  public confirmPayment(winner: string, productName: string) {
+    this.paymentConfirmedSubscribers.forEach(cb => cb(winner, productName));
+  }
+
+  private paymentConfirmedSubscribers: Array<(winner: string, product: string) => void> = [];
+
+  public subscribePaymentConfirmed(callback: (winner: string, product: string) => void): () => void {
+    this.paymentConfirmedSubscribers.push(callback);
+    return () => {
+      this.paymentConfirmedSubscribers = this.paymentConfirmedSubscribers.filter(c => c !== callback);
+    };
+  }
+
+  /** Called by AIStreamPanel when an auction round ends with a winner.
+   *  Broadcasts to all buyer subscribers so they can trigger payment. */
+  public recordAIAuctionWin(
+    productName:   string,
+    winner:        string,
+    amount:        number,
+    productImage?: string,
+  ) {
+    const item = {
+      id:            Date.now(),
+      name:          productName,
+      startingPrice: amount,
+      imageUrl:      productImage ?? '',
+      description:   '',
+      keyPoints:     [],
+    };
+    this.notifyAuctionEnd(item, amount, winner);
+  }
+
   public subscribe(callback: Subscriber) {
     this.subscribers.push(callback);
     callback({

@@ -28,10 +28,8 @@ interface Props {
   onSaved: () => void;
 }
 
-const inputClass =
-  "w-full bg-[#0f1524] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20";
-const selectClass =
-  "w-full bg-[#0f1524] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20";
+const inputStyle = { border: "1.5px solid rgba(43,108,184,0.25)", background: "rgba(43,108,184,0.03)" };
+const inputCls = "w-full rounded-xl px-3 py-2.5 text-sm text-[#1B3A6B] placeholder:text-[#4A7AB5] focus:outline-none focus:ring-2 focus:ring-[#2B6CB8]/30";
 
 const CreateProductPage: React.FC<Props> = ({ shows, onCancel, onSaved }) => {
   const auth = getAuth();
@@ -81,17 +79,34 @@ const CreateProductPage: React.FC<Props> = ({ shows, onCancel, onSaved }) => {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-400">Inventory</p>
-          <h1 className="text-3xl font-bold text-white">Create product</h1>
+          <p className="text-sm text-[#4A7AB5] font-medium">Inventory</p>
+          <h1 className="text-3xl font-bold text-[#1B3A6B]">Create product</h1>
         </div>
         <div className="flex gap-2">
-          <button onClick={onCancel} className="px-4 py-2 rounded-lg border border-white/10 text-white/80 hover:bg-white/10 text-sm">Cancel</button>
-          <button onClick={() => save("draft")} className="px-4 py-2 rounded-lg bg-white/10 text-white font-semibold text-sm border border-white/20 hover:bg-white/15" disabled={!!saving}>
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 rounded-xl text-sm font-semibold text-[#4A7AB5] hover:text-[#2B6CB8] hover:bg-blue-50 transition-colors"
+            style={{ border: "1.5px solid rgba(43,108,184,0.2)" }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => save("draft")}
+            disabled={!!saving}
+            className="px-4 py-2 rounded-xl text-sm font-semibold text-[#2B6CB8] hover:bg-blue-50 transition-colors disabled:opacity-50"
+            style={{ border: "1.5px solid rgba(43,108,184,0.3)" }}
+          >
             {saving === "draft" ? "Saving…" : "Save draft"}
           </button>
-          <button onClick={() => save("active")} className="px-4 py-2 rounded-lg bg-white text-black font-semibold text-sm hover:bg-gray-100" disabled={!!saving}>
+          <button
+            onClick={() => save("active")}
+            disabled={!!saving}
+            className="px-4 py-2 rounded-xl text-white font-bold text-sm transition-colors disabled:opacity-50"
+            style={{ background: "linear-gradient(135deg,#2B6CB8,#1A4B8C)", boxShadow: "0 4px 14px rgba(43,108,184,0.3)" }}
+          >
             {saving === "publish" ? "Publishing…" : "Publish"}
           </button>
         </div>
@@ -101,25 +116,25 @@ const CreateProductPage: React.FC<Props> = ({ shows, onCancel, onSaved }) => {
         <div className="xl:col-span-2 space-y-4">
           <Section title="Product details">
             <Field label="Product name" required>
-              <input value={form.name} onChange={(e) => update("name", e.target.value)} className={inputClass} placeholder="E.g., Vintage sneakers (Size 9)" />
+              <input value={form.name} onChange={(e) => update("name", e.target.value)} className={inputCls} style={inputStyle} placeholder="E.g., Vintage sneakers (Size 9)" />
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Category" required>
-                <input value={form.category} onChange={(e) => update("category", e.target.value)} className={inputClass} placeholder="Sneakers, Electronics…" />
+                <input value={form.category} onChange={(e) => update("category", e.target.value)} className={inputCls} style={inputStyle} placeholder="Sneakers, Electronics…" />
               </Field>
               <Field label="Quantity" required>
-                <input type="number" min={0} value={form.quantity} onChange={(e) => update("quantity", Number(e.target.value))} className={inputClass} />
+                <input type="number" min={0} value={form.quantity} onChange={(e) => update("quantity", Number(e.target.value))} className={inputCls} style={inputStyle} />
               </Field>
             </div>
             <Field label="Description" required>
-              <textarea value={form.description} onChange={(e) => update("description", e.target.value)} className={`${inputClass} h-24 resize-none`} placeholder="Details, condition, sizing, what buyers should know…" />
+              <textarea value={form.description} onChange={(e) => update("description", e.target.value)} className={`${inputCls} h-24 resize-none`} style={inputStyle} placeholder="Details, condition, sizing, what buyers should know…" />
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Price" required>
-                <input value={form.price} onChange={(e) => update("price", e.target.value)} className={inputClass} placeholder="₹0.00" />
+                <input value={form.price} onChange={(e) => update("price", e.target.value)} className={inputCls} style={inputStyle} placeholder="₹0.00" />
               </Field>
               <Field label="Format" required>
-                <select value={form.format} onChange={(e) => update("format", e.target.value as any)} className={selectClass}>
+                <select value={form.format} onChange={(e) => update("format", e.target.value as any)} className={inputCls} style={inputStyle}>
                   <option value="Auction">Auction</option>
                   <option value="Buy Now">Buy Now</option>
                 </select>
@@ -127,20 +142,15 @@ const CreateProductPage: React.FC<Props> = ({ shows, onCancel, onSaved }) => {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Condition" required>
-                <select value={form.condition} onChange={(e) => update("condition", e.target.value as any)} className={selectClass}>
+                <select value={form.condition} onChange={(e) => update("condition", e.target.value as any)} className={inputCls} style={inputStyle}>
                   <option value="New">New</option>
                   <option value="Pre-owned">Pre-owned</option>
                 </select>
               </Field>
               <Field label="Assign to show" required>
-                <select
-                  value={form.featuredIn}
-                  onChange={(e) => update("featuredIn", e.target.value)}
-                  className={selectClass}
-                  style={{ color: "#fff", backgroundColor: "#0f1524" }}
-                >
+                <select value={form.featuredIn} onChange={(e) => update("featuredIn", e.target.value)} className={inputCls} style={inputStyle}>
                   {shows.map((s) => (
-                    <option key={s.id} value={s.title || `Show ${s.id}`} className="text-black">
+                    <option key={s.id} value={s.title || `Show ${s.id}`}>
                       {s.title || `Show ${s.id}`}
                     </option>
                   ))}
@@ -150,9 +160,15 @@ const CreateProductPage: React.FC<Props> = ({ shows, onCancel, onSaved }) => {
           </Section>
 
           <Section title="Variants">
-            <label className="flex items-center gap-2 text-sm text-gray-200">
-              <input type="checkbox" className="accent-orange-500" checked={form.variantsEnabled} onChange={(e) => update("variantsEnabled", e.target.checked)} />
-              Enable variants (colors/sizes/quantities)
+            <label className="flex items-center gap-2 text-sm text-[#1B3A6B] cursor-pointer">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded"
+                style={{ accentColor: "#2B6CB8" }}
+                checked={form.variantsEnabled}
+                onChange={(e) => update("variantsEnabled", e.target.checked)}
+              />
+              Enable variants (colours/sizes/quantities)
             </label>
           </Section>
         </div>
@@ -160,10 +176,10 @@ const CreateProductPage: React.FC<Props> = ({ shows, onCancel, onSaved }) => {
         <div className="space-y-4">
           <Section title="Shipping">
             <Field label="Shipping profile">
-              <input value={form.shippingProfile} onChange={(e) => update("shippingProfile", e.target.value)} className={inputClass} placeholder="e.g., Standard domestic" />
+              <input value={form.shippingProfile} onChange={(e) => update("shippingProfile", e.target.value)} className={inputCls} style={inputStyle} placeholder="e.g., Standard domestic" />
             </Field>
             <Field label="Hazardous materials">
-              <select value={form.hazardous} onChange={(e) => update("hazardous", e.target.value)} className={selectClass}>
+              <select value={form.hazardous} onChange={(e) => update("hazardous", e.target.value)} className={inputCls} style={inputStyle}>
                 <option>No hazardous materials</option>
                 <option>Lithium batteries</option>
                 <option>Fragrance</option>
@@ -171,12 +187,13 @@ const CreateProductPage: React.FC<Props> = ({ shows, onCancel, onSaved }) => {
               </select>
             </Field>
           </Section>
+
           <Section title="Optional fields">
             <Field label="Cost per item">
-              <input value={form.costPerItem} onChange={(e) => update("costPerItem", e.target.value)} className={inputClass} />
+              <input value={form.costPerItem} onChange={(e) => update("costPerItem", e.target.value)} className={inputCls} style={inputStyle} />
             </Field>
             <Field label="SKU">
-              <input value={form.sku} onChange={(e) => update("sku", e.target.value)} className={inputClass} />
+              <input value={form.sku} onChange={(e) => update("sku", e.target.value)} className={inputCls} style={inputStyle} />
             </Field>
           </Section>
         </div>
@@ -186,16 +203,19 @@ const CreateProductPage: React.FC<Props> = ({ shows, onCancel, onSaved }) => {
 };
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="rounded-2xl bg-gradient-to-br from-[#0f1628] via-[#0c1524] to-[#0a111f] border border-white/10 shadow-2xl shadow-black/30 p-5 space-y-3">
-    <p className="text-sm font-semibold text-white">{title}</p>
+  <div
+    className="bg-white rounded-2xl p-5 space-y-4"
+    style={{ border: "1.5px solid rgba(43,108,184,0.15)", boxShadow: "0 2px 12px rgba(43,108,184,0.07)" }}
+  >
+    <p className="text-sm font-bold text-[#1B3A6B]">{title}</p>
     {children}
   </div>
 );
 
 const Field: React.FC<{ label: string; required?: boolean; children: React.ReactNode }> = ({ label, required, children }) => (
-  <label className="block text-sm text-gray-200 space-y-1">
-    <span className="text-xs text-gray-400">
-      {label} {required && <span className="text-red-400">*</span>}
+  <label className="block space-y-1.5">
+    <span className="text-xs font-semibold text-[#4A7AB5] uppercase tracking-wide">
+      {label} {required && <span className="text-red-500">*</span>}
     </span>
     {children}
   </label>

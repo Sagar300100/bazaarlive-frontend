@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState } from 'react';
 import { onboardingCategories, subCategories, paymentMethods } from '../constants/onboardingData';
 import { CheckmarkCircleIcon, UpiIcon, WalletIcon, NetBankingIcon, CardIcon, UploadIcon } from './Icons';
@@ -215,7 +215,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
             case 7:
                 return (
                     <div className="text-center">
-                        <h2 className="text-2xl font-bold text-white mb-4">Get the full experience on the BazaarLive app</h2>
+                        <h2 className="text-2xl font-bold text-white mb-4">Get the full experience on the Any & All app</h2>
                         <p className="text-gray-400 mb-6">Scan the QR code on your phone.</p>
                         <div className="flex justify-center">
                             <div className="p-4 bg-white rounded-lg">

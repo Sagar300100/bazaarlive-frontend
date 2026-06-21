@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState } from 'react';
 
 const ToggleSwitch: React.FC<{ enabled: boolean; onChange: (enabled: boolean) => void }> = ({ enabled, onChange }) => (
@@ -38,10 +38,10 @@ const PreferencesPanel: React.FC = () => {
                 <p className="text-gray-400 mb-6">Select how you can interact with and be viewed by others.</p>
 
                 <div className="divide-y divide-gray-700">
-                    <SettingRow title="Direct Messages" description="Turn this on if you'd like to receive direct messages from BazaarLive users.">
+                    <SettingRow title="Direct Messages" description="Turn this on if you'd like to receive direct messages from Any & All users.">
                         <ToggleSwitch enabled={directMessages} onChange={setDirectMessages} />
                     </SettingRow>
-                    <SettingRow title="Receive gifts" description="Turn this on to be discoverable to receive gift purchases from other BazaarLive users.">
+                    <SettingRow title="Receive gifts" description="Turn this on to be discoverable to receive gift purchases from other Any & All users.">
                         <ToggleSwitch enabled={receiveGifts} onChange={setReceiveGifts} />
                     </SettingRow>
                     <SettingRow title="Activity Status" description="Turn this on if you'd like to share your activities with your friends.">

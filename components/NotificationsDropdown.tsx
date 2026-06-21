@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 
 const NotificationsDropdown: React.FC = () => {
     const [activeTab, setActiveTab] = useState('All');
@@ -25,7 +25,7 @@ const NotificationsDropdown: React.FC = () => {
             <div className="p-10 text-center">
                 <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
                     <div className="flex items-center justify-center w-12 h-12 rounded-full bg-yellow-400">
-                        {/* BazaarLive Logo */}
+                        {/* Any & All Logo */}
                         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="m12 19-7-7 7-7"/>
                             <path d="M19 12H5"/>

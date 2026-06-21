@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { LinkIcon, ContentIcon, CashIcon, PlusIcon } from '../components/Icons';
 
 const FAQItem: React.FC<{ question: string; children: React.ReactNode }> = ({ question, children }) => {
@@ -20,9 +20,9 @@ const AffiliatePage: React.FC = () => {
             {/* Hero Section */}
             <header className="bg-yellow-400 text-black">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight">BazaarLive Affiliates</h1>
+                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight">Any & All Affiliates</h1>
                     <p className="mt-4 max-w-2xl mx-auto text-lg text-gray-800">
-                        Want to get paid to share the app you already love? Whether you're a content creator, run an online community, or have a website, blog or newsletter then you can now join BazaarLive Affiliates!
+                        Want to get paid to share the app you already love? Whether you're a content creator, run an online community, or have a website, blog or newsletter then you can now join Any & All Affiliates!
                     </p>
                     <button className="mt-8 bg-black text-white font-bold py-3 px-8 rounded-full hover:bg-gray-800 transition-transform duration-300 transform hover:scale-105">
                         Sign Up
@@ -31,11 +31,11 @@ const AffiliatePage: React.FC = () => {
             </header>
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-                {/* What is BazaarLive Section */}
+                {/* What is Any & All Section */}
                 <section className="text-center max-w-4xl mx-auto">
-                    <h2 className="text-3xl font-bold text-white">What is BazaarLive?</h2>
+                    <h2 className="text-3xl font-bold text-white">What is Any & All?</h2>
                     <p className="mt-4 text-lg text-gray-400">
-                        BazaarLive is the largest live shopping platform in India and Europe to buy, sell, & discover products you love. With multiple categories, you can find rare and unique items from Sports Cards, Collectibles, Comics, Fashion, and more!
+                        Any & All is the largest live shopping platform in India and Europe to buy, sell, & discover products you love. With multiple categories, you can find rare and unique items from Sports Cards, Collectibles, Comics, Fashion, and more!
                     </p>
                 </section>
 
@@ -43,12 +43,12 @@ const AffiliatePage: React.FC = () => {
                 <section className="mt-20 grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="bg-gray-800 p-8 rounded-lg">
                         <h3 className="text-xl font-bold text-white mb-4">Learn More & Apply</h3>
-                        <p className="text-gray-400 mb-6">Apply directly here to BazaarLive Affiliates, powered by Impact.com. Set up an account and start earning right away!</p>
+                        <p className="text-gray-400 mb-6">Apply directly here to Any & All Affiliates, powered by Impact.com. Set up an account and start earning right away!</p>
                         <button className="bg-yellow-400 text-black font-bold py-2 px-6 rounded-full hover:bg-yellow-300 transition-colors">Get Started</button>
                     </div>
                      <div className="bg-gray-800 p-8 rounded-lg">
                         <h3 className="text-xl font-bold text-white mb-4">Generate Links</h3>
-                        <p className="text-gray-400 mb-6">Create links to BazaarLive products, shows, searches and more. You can make links on Impact.com, from BazaarLive's app, or directly on BazaarLive's website.</p>
+                        <p className="text-gray-400 mb-6">Create links to Any & All products, shows, searches and more. You can make links on Impact.com, from Any & All's app, or directly on Any & All's website.</p>
                         <button className="bg-yellow-400 text-black font-bold py-2 px-6 rounded-full hover:bg-yellow-300 transition-colors">Create Links</button>
                     </div>
                      <div className="bg-gray-800 p-8 rounded-lg">
@@ -67,10 +67,10 @@ const AffiliatePage: React.FC = () => {
                 <section className="mt-20 max-w-4xl mx-auto">
                     <h2 className="text-3xl font-bold text-white text-center mb-8">FAQs</h2>
                     <FAQItem question="Who can apply?">
-                        <p>Anyone can apply to become a BazaarLive Affiliate! We review applications based on a variety of factors, including channel size, engagement, and content quality.</p>
+                        <p>Anyone can apply to become a Any & All Affiliate! We review applications based on a variety of factors, including channel size, engagement, and content quality.</p>
                     </FAQItem>
                     <FAQItem question="How long does an affiliate tracking cookie last?">
-                        <p>The tracking cookie for BazaarLive affiliate links lasts for 3 days. This means you will earn a commission on any eligible purchases made by a user within 3 days of them clicking your link.</p>
+                        <p>The tracking cookie for Any & All affiliate links lasts for 3 days. This means you will earn a commission on any eligible purchases made by a user within 3 days of them clicking your link.</p>
                     </FAQItem>
                     <FAQItem question="How are referrals tracked?">
                         <p>Our affiliate program is powered by Impact.com, which uses a combination of cookies and tracking pixels to monitor clicks and attribute sales to your unique affiliate links.</p>

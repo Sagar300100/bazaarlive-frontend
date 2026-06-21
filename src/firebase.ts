@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import {
   getAuth,
   setPersistence,
-  browserLocalPersistence,
+  browserSessionPersistence,
   signOut,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -29,7 +29,19 @@ export const app = initializeApp(firebaseConfig);
 
 // Auth
 export const auth = getAuth(app);
-setPersistence(auth, browserLocalPersistence).catch(() => {
+
+// Clear any stale tokens saved by the old browserLocalPersistence setting.
+// Without this, Firebase reads the old localStorage entry and auto-logs the user in
+// even though we've switched to session-only persistence.
+try {
+  Object.keys(localStorage)
+    .filter((k) => k.startsWith("firebase:authUser:") || k.startsWith("firebase:"))
+    .forEach((k) => localStorage.removeItem(k));
+} catch {
+  // ignore — localStorage may be unavailable in some environments
+}
+
+setPersistence(auth, browserSessionPersistence).catch(() => {
   // ignore persistence errors in dev
 });
 

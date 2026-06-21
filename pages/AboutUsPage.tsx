@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 
 const AboutUsPage: React.FC = () => {
     return (
@@ -17,7 +17,7 @@ const AboutUsPage: React.FC = () => {
                         Connecting India, <span className="text-orange-500">Live.</span>
                     </h1>
                     <p className="mt-6 max-w-3xl mx-auto text-lg text-gray-300">
-                        BazaarLive is more than a marketplace. We are a community-driven platform bringing the excitement of live auctions and shopping directly to you, from sellers across the nation.
+                        Any & All is more than a marketplace. We are a community-driven platform bringing the excitement of live auctions and shopping directly to you, from sellers across the nation.
                     </p>
                 </div>
             </header>
@@ -28,7 +28,7 @@ const AboutUsPage: React.FC = () => {
                     <div>
                         <h2 className="text-3xl font-bold text-white">Our Story</h2>
                         <p className="mt-4 text-gray-400">
-                            Born from a passion for collectibles and the vibrant energy of Indian bazaars, BazaarLive was created to bridge the gap between passionate sellers and enthusiastic buyers. We saw an opportunity to use technology not just to transact, but to connect, share stories, and build genuine relationships.
+                            Born from a passion for collectibles and the vibrant energy of Indian bazaars, Any & All was created to bridge the gap between passionate sellers and enthusiastic buyers. We saw an opportunity to use technology not just to transact, but to connect, share stories, and build genuine relationships.
                         </p>
                         <p className="mt-4 text-gray-400">
                             We're on a mission to empower creators, collectors, and entrepreneurs by giving them a stage to share what they love. Our platform is built on the principles of trust, community, and the thrill of the find.
