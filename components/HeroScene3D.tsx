@@ -3,9 +3,10 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import {
   Float, Environment, RoundedBox, Sparkles, Stars,
   PerspectiveCamera, Lightformer, useTexture, Text,
+  AdaptiveDpr, AdaptiveEvents,
 } from "@react-three/drei";
 import {
-  EffectComposer, Bloom, ChromaticAberration, Vignette, Noise,
+  EffectComposer, Bloom, ChromaticAberration, Vignette,
 } from "@react-three/postprocessing";
 import { BlendFunction } from "postprocessing";
 import * as THREE from "three";
@@ -360,38 +361,42 @@ const Scene: React.FC<{ mouse: React.RefObject<{ x: number; y: number }>; stateR
       </group>
 
       {/* curl-noise particle field — replaces static sparkles */}
-      <FlowParticles count={1200} />
+      <FlowParticles count={500} />
 
-      {/* twinkle accents */}
-      <Sparkles count={260} scale={[14, 8, 6]} size={2.2} speed={0.35} color="#FFFFFF" opacity={0.6} />
-      <Sparkles count={140} scale={[10, 6, 5]} size={3.0} speed={0.2}  color="#06B6D4" opacity={0.55} />
-      <Stars radius={32} depth={60} count={1800} factor={3.0} saturation={0} fade speed={0.5} />
+      {/* twinkle accents — toned down from prior overkill */}
+      <Sparkles count={120} scale={[14, 8, 6]} size={1.8} speed={0.3} color="#FFFFFF" opacity={0.5} />
+      <Sparkles count={60}  scale={[10, 6, 5]} size={2.4} speed={0.18} color="#06B6D4" opacity={0.45} />
+      <Stars radius={32} depth={60} count={900} factor={2.4} saturation={0} fade speed={0.4} />
 
-      {/* ─── POST-PROCESSING PIPELINE ─── */}
+      {/* auto-scale DPR + throttle events when FPS drops on weaker devices */}
+      <AdaptiveDpr pixelated />
+      <AdaptiveEvents />
+
+      {/* ─── POST-PROCESSING — refined, not maxed out ──
+         - Bloom much subtler (1.1 → 0.45) so glows don't wash out detail
+         - ChromaticAberration cut by 6x (0.0014 → 0.00025) — was making the
+           product photos look glitched (rainbow fringes)
+         - Vignette softer (0.72 → 0.45) — less letterboxed
+         - Removed grain on this scene (CinematicOverlay still adds it globally) */}
       <EffectComposer multisampling={0}>
         <Bloom
-          intensity={1.1}
-          luminanceThreshold={0.55}
-          luminanceSmoothing={0.85}
+          intensity={0.45}
+          luminanceThreshold={0.7}
+          luminanceSmoothing={0.9}
           mipmapBlur
-          radius={0.78}
+          radius={0.62}
         />
         <ChromaticAberration
-          offset={new THREE.Vector2(0.0014, 0.0014)}
+          offset={new THREE.Vector2(0.00025, 0.00025)}
           blendFunction={BlendFunction.NORMAL}
           radialModulation={false}
           modulationOffset={0}
         />
         <Vignette
-          offset={0.32}
-          darkness={0.72}
+          offset={0.42}
+          darkness={0.45}
           eskil={false}
           blendFunction={BlendFunction.NORMAL}
-        />
-        <Noise
-          opacity={0.04}
-          premultiply
-          blendFunction={BlendFunction.SOFT_LIGHT}
         />
       </EffectComposer>
     </>
@@ -433,7 +438,7 @@ const HeroScene3D = React.forwardRef<HeroSceneHandle, {}>((_, forwardedRef) => {
   return (
     <div ref={containerRef} style={{ width: "100%", height: "100%", position: "relative", transition: "opacity 200ms ease" }}>
       <Canvas
-        dpr={[1, 1.7]}
+        dpr={[1, 1.25]}
         gl={{
           antialias: true,
           alpha: true,
