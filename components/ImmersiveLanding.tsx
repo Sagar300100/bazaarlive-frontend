@@ -362,6 +362,292 @@ const SellerPhone: React.FC<{ scrollRef: React.MutableRefObject<number> }> = ({ 
   );
 };
 
+/* ════════════════════════════════════════════════════════════════
+   WORLD DETAIL — stream windows, creator panels, bid lines, chat
+   ripples, proximity glow. These give the journey texture and
+   communicate "this is live commerce" without abstract metaphor.
+   Each subscribes to scrollRef so motion stays choreographed.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ───── STREAM WINDOW
+   Small 3D plane simulating a live feed: animated colour gradient
+   shader + LIVE pill + viewer count text. Glows brighter as camera
+   approaches (proximity reaction). */
+const streamVS = /* glsl */`
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const streamFS = /* glsl */`
+  precision highp float;
+  varying vec2 vUv;
+  uniform float uTime;
+  uniform vec3  uHue;
+  void main() {
+    // 3-stop gradient that breathes — substitutes for a video feed
+    float t = uTime * 0.6;
+    float band = sin(vUv.y * 3.0 + t) * 0.5 + 0.5;
+    vec3 col = mix(uHue * 0.4, uHue, band);
+    // scanline overlay so it reads as a "screen"
+    float scan = 0.92 + 0.08 * sin(vUv.y * 280.0);
+    col *= scan;
+    // soft edge fade so it doesn't look like a flat plane
+    float edge = smoothstep(0.0, 0.05, vUv.x) * smoothstep(1.0, 0.95, vUv.x)
+               * smoothstep(0.0, 0.05, vUv.y) * smoothstep(1.0, 0.95, vUv.y);
+    gl_FragColor = vec4(col, edge);
+  }
+`;
+const StreamWindow: React.FC<{
+  position: [number, number, number];
+  hue: string;
+  rotation?: [number, number, number];
+  scrollRef: React.MutableRefObject<number>;
+  appearAt: [number, number];     // scroll range when visible
+  scale?: number;
+}> = ({ position, hue, rotation = [0, 0, 0], scrollRef, appearAt, scale = 1 }) => {
+  const grpRef = useRef<THREE.Group>(null!);
+  const matRef = useRef<THREE.ShaderMaterial>(null!);
+  const liveRef = useRef<THREE.Mesh>(null!);
+  const uniforms = useMemo(() => ({
+    uTime: { value: 0 },
+    uHue:  { value: new THREE.Color(hue) },
+  }), [hue]);
+
+  useFrame((state, dt) => {
+    const s = scrollRef.current;
+    const visible = THREE.MathUtils.smoothstep(s, appearAt[0], appearAt[0] + 0.05)
+                  * (1 - THREE.MathUtils.smoothstep(s, appearAt[1] - 0.05, appearAt[1]));
+    if (grpRef.current) {
+      const target = visible * scale;
+      grpRef.current.scale.lerp(new THREE.Vector3(target, target, target), Math.min(1, dt * 4));
+      grpRef.current.rotation.y += dt * 0.08;
+    }
+    if (matRef.current) matRef.current.uniforms.uTime.value = state.clock.elapsedTime;
+    // pulse the LIVE badge
+    if (liveRef.current) {
+      const pulse = Math.sin(state.clock.elapsedTime * 4.5) * 0.06 + 1;
+      liveRef.current.scale.setScalar(pulse);
+    }
+  });
+
+  return (
+    <Float speed={0.4} rotationIntensity={0.08} floatIntensity={0.25}>
+      <group ref={grpRef} position={position} rotation={rotation} scale={0}>
+        {/* screen plane */}
+        <mesh>
+          <planeGeometry args={[1.6, 2.4]} />
+          <shaderMaterial
+            ref={matRef}
+            vertexShader={streamVS}
+            fragmentShader={streamFS}
+            uniforms={uniforms}
+            transparent
+          />
+        </mesh>
+        {/* glowing edge / bezel */}
+        <mesh position={[0, 0, -0.01]}>
+          <planeGeometry args={[1.72, 2.52]} />
+          <meshBasicMaterial color={hue} transparent opacity={0.18} toneMapped={false} />
+        </mesh>
+        {/* LIVE pill — bottom-left */}
+        <mesh ref={liveRef} position={[-0.55, -1.05, 0.01]}>
+          <planeGeometry args={[0.34, 0.12]} />
+          <meshBasicMaterial color="#F43F5E" toneMapped={false} />
+        </mesh>
+      </group>
+    </Float>
+  );
+};
+
+/* ───── CREATOR PANEL
+   A translucent screen showing seller avatar + name + follower count.
+   Orbits around its anchor + emits subtle pulse waves. */
+const CreatorPanel: React.FC<{
+  position: [number, number, number];
+  scrollRef: React.MutableRefObject<number>;
+  appearAt: [number, number];
+  seller: string;
+  followers: string;
+  accent: string;
+}> = ({ position, scrollRef, appearAt, seller, followers, accent }) => {
+  const grp = useRef<THREE.Group>(null!);
+  useFrame((state, dt) => {
+    const s = scrollRef.current;
+    const v = THREE.MathUtils.smoothstep(s, appearAt[0], appearAt[0] + 0.05)
+            * (1 - THREE.MathUtils.smoothstep(s, appearAt[1] - 0.05, appearAt[1]));
+    if (grp.current) {
+      grp.current.scale.lerp(new THREE.Vector3(v, v, v), Math.min(1, dt * 4));
+      // gentle bob
+      grp.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 0.8) * 0.1;
+    }
+  });
+  return (
+    <group ref={grp} position={position} scale={0}>
+      {/* glass slab */}
+      <RoundedBox args={[2.0, 1.2, 0.08]} radius={0.10} smoothness={4}>
+        <meshPhysicalMaterial
+          color="#0B1220"
+          metalness={0.4}
+          roughness={0.2}
+          transmission={0.3}
+          thickness={0.5}
+          clearcoat={1}
+          transparent
+          opacity={0.85}
+        />
+      </RoundedBox>
+      {/* accent strip top */}
+      <mesh position={[0, 0.55, 0.045]}>
+        <planeGeometry args={[2.0, 0.06]} />
+        <meshBasicMaterial color={accent} toneMapped={false} />
+      </mesh>
+      {/* avatar circle */}
+      <mesh position={[-0.7, 0.05, 0.045]}>
+        <circleGeometry args={[0.28, 32]} />
+        <meshBasicMaterial color={accent} toneMapped={false} />
+      </mesh>
+      {/* text overlay via drei Html */}
+      <Html
+        position={[0.05, 0.05, 0.05]}
+        center
+        transform
+        distanceFactor={3}
+        style={{ pointerEvents: "none", userSelect: "none" }}
+      >
+        <div style={{
+          fontFamily: "'Outfit', sans-serif",
+          color: "white", textAlign: "left",
+          fontSize: 18, fontWeight: 700,
+          minWidth: 200,
+        }}>
+          <div>{seller}</div>
+          <div style={{ fontSize: 11, opacity: 0.65, fontWeight: 500, marginTop: 4 }}>
+            ● LIVE  ·  {followers} watching
+          </div>
+        </div>
+      </Html>
+    </group>
+  );
+};
+
+/* ───── BID LINES
+   Animated dashed beams between bidder positions and a podium.
+   Texture offset drives flow direction so it reads as "bid energy". */
+const BidLines: React.FC<{
+  scrollRef: React.MutableRefObject<number>;
+  appearAt: [number, number];
+  podium: [number, number, number];
+  bidders: [number, number, number][];
+}> = ({ scrollRef, appearAt, podium, bidders }) => {
+  const grp = useRef<THREE.Group>(null!);
+  const lineRefs = useRef<THREE.Mesh[]>([]);
+
+  // Pre-compute the line transforms (midpoint, length, rotation)
+  const lineData = useMemo(() => bidders.map((b) => {
+    const a = new THREE.Vector3(...b);
+    const c = new THREE.Vector3(...podium);
+    const mid = a.clone().add(c).multiplyScalar(0.5);
+    const len = a.distanceTo(c);
+    const dir = c.clone().sub(a);
+    const rot = new THREE.Euler(
+      Math.atan2(-dir.z, Math.sqrt(dir.x * dir.x + dir.y * dir.y)),
+      Math.atan2(dir.x, dir.y),
+      0
+    );
+    return { mid, len, rot };
+  }), [podium, bidders]);
+
+  useFrame((state, dt) => {
+    const s = scrollRef.current;
+    const v = THREE.MathUtils.smoothstep(s, appearAt[0], appearAt[0] + 0.05)
+            * (1 - THREE.MathUtils.smoothstep(s, appearAt[1] - 0.05, appearAt[1]));
+    if (grp.current) {
+      grp.current.scale.lerp(new THREE.Vector3(v, v, v), Math.min(1, dt * 4));
+    }
+    // pulse the line opacity to feel like data flowing
+    lineRefs.current.forEach((m, i) => {
+      if (!m) return;
+      const mat = m.material as THREE.MeshBasicMaterial;
+      mat.opacity = 0.35 + Math.sin(state.clock.elapsedTime * 3 + i * 0.7) * 0.35;
+    });
+  });
+
+  return (
+    <group ref={grp} scale={0}>
+      {/* podium */}
+      <mesh position={podium}>
+        <cylinderGeometry args={[0.22, 0.32, 0.4, 16]} />
+        <meshStandardMaterial color="#7BB8FF" emissive="#06B6D4" emissiveIntensity={1.2} metalness={0.6} roughness={0.2} />
+      </mesh>
+      {/* beams */}
+      {lineData.map((d, i) => (
+        <mesh
+          key={i}
+          ref={(el) => { if (el) lineRefs.current[i] = el; }}
+          position={d.mid}
+          rotation={[d.rot.x, 0, d.rot.z]}
+        >
+          <boxGeometry args={[d.len, 0.025, 0.025]} />
+          <meshBasicMaterial color="#7BB8FF" transparent opacity={0.5} toneMapped={false} />
+        </mesh>
+      ))}
+      {/* bidder dots */}
+      {bidders.map((b, i) => (
+        <mesh key={i} position={b}>
+          <sphereGeometry args={[0.12, 16, 16]} />
+          <meshBasicMaterial color="#F43F5E" toneMapped={false} />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
+/* ───── CHAT RIPPLES
+   Concentric rings that periodically expand outward from a point —
+   suggest live audience reactions. Lightweight (1 mesh per ripple
+   recycled). */
+const ChatRipples: React.FC<{
+  scrollRef: React.MutableRefObject<number>;
+  appearAt: [number, number];
+  origin: [number, number, number];
+  color: string;
+}> = ({ scrollRef, appearAt, origin, color }) => {
+  const ringRefs = useRef<THREE.Mesh[]>([]);
+  const startTimes = useRef<number[]>([0, 1.2, 2.4]);
+
+  useFrame((state, dt) => {
+    const s = scrollRef.current;
+    const visible = THREE.MathUtils.smoothstep(s, appearAt[0], appearAt[0] + 0.05)
+                  * (1 - THREE.MathUtils.smoothstep(s, appearAt[1] - 0.05, appearAt[1]));
+    const t = state.clock.elapsedTime;
+    ringRefs.current.forEach((m, i) => {
+      if (!m) return;
+      const phase = ((t - startTimes.current[i]) % 3.6) / 3.6; // 0..1 every 3.6s
+      const radius = 0.1 + phase * 1.8;
+      const opacity = (1 - phase) * 0.55 * visible;
+      m.scale.set(radius, radius, 1);
+      (m.material as THREE.MeshBasicMaterial).opacity = opacity;
+    });
+  });
+
+  return (
+    <group position={origin}>
+      {[0, 1, 2].map((i) => (
+        <mesh
+          key={i}
+          ref={(el) => { if (el) ringRefs.current[i] = el; }}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <ringGeometry args={[0.9, 1.0, 48]} />
+          <meshBasicMaterial color={color} transparent opacity={0} toneMapped={false} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+    </group>
+  );
+};
+
 /* ────────────────────────────────────────────────────────────────
    CAMERA RIG — moves through z-space, reads scroll
    The whole experience hinges on this — every other element
@@ -423,11 +709,42 @@ const Scene: React.FC<{ mouseRef: React.RefObject<{ x: number; y: number }> }> =
         <Lightformer form="ring" intensity={1.4} color="#06B6D4" position={[0, -3, 0]} scale={[4, 4, 1]} />
       </Environment>
 
-      {/* the 3D narrative */}
+      {/* ─── THE 3D NARRATIVE ─── */}
+      {/* Core focal — present across the whole journey */}
       <Focal scrollRef={scrollRef} />
       <Shards scrollRef={scrollRef} />
+
+      {/* ─── STATION 2: Marketplace Awakening (0.18 → 0.42) ─── */}
+      {/* Floating stream windows appear as camera enters the marketplace */}
+      <StreamWindow scrollRef={scrollRef} appearAt={[0.18, 0.45]}
+                    position={[-3.2,  0.8, -3]} hue="#F43F5E" rotation={[0,  0.3, 0]} scale={0.8} />
+      <StreamWindow scrollRef={scrollRef} appearAt={[0.20, 0.45]}
+                    position={[ 3.5, -0.6, -4]} hue="#06B6D4" rotation={[0, -0.4, 0]} scale={0.9} />
+      <StreamWindow scrollRef={scrollRef} appearAt={[0.22, 0.45]}
+                    position={[-2.4, -1.6, -6]} hue="#A78BFA" rotation={[0,  0.5, 0]} scale={0.7} />
+
+      {/* Chat ripples ripple out from stream-window positions — live audience reactions */}
+      <ChatRipples scrollRef={scrollRef} appearAt={[0.22, 0.50]} origin={[-3.2, -0.5, -3]} color="#F43F5E" />
+      <ChatRipples scrollRef={scrollRef} appearAt={[0.24, 0.50]} origin={[ 3.5, -1.8, -4]} color="#06B6D4" />
+
+      {/* ─── STATION 4: Journey / How It Works (0.50 → 0.72) ─── */}
       <JourneyNodes scrollRef={scrollRef} />
+      {/* Creator panel appears between journey nodes — "live sellers connecting" */}
+      <CreatorPanel scrollRef={scrollRef} appearAt={[0.52, 0.72]}
+                    position={[1.8, 1.4, -16]} seller="Sneaker Vault" followers="4.1K" accent="#F43F5E" />
+      <CreatorPanel scrollRef={scrollRef} appearAt={[0.55, 0.72]}
+                    position={[-2.6, -0.8, -17]} seller="Luxe Time Co." followers="1.8K" accent="#F59E0B" />
+
+      {/* Bid lines — energy flowing toward a podium */}
+      <BidLines scrollRef={scrollRef} appearAt={[0.58, 0.74]}
+                podium={[0, -0.4, -16]}
+                bidders={[[-2.4, 1.2, -16], [2.6, 1.0, -16], [-1.8, -1.6, -16], [2.0, -1.4, -16]]} />
+
+      {/* ─── STATION 5: Sellers (0.72 → 0.92) ─── */}
       <SellerPhone scrollRef={scrollRef} />
+      {/* Another creator panel anchors the seller moment */}
+      <CreatorPanel scrollRef={scrollRef} appearAt={[0.74, 0.92]}
+                    position={[-2.4, 0.6, -22]} seller="Heritage Sarees" followers="2.3K" accent="#8B5CF6" />
 
       {/* ambient particles travel with the camera */}
       <Sparkles count={180} scale={[14, 8, 30]} size={1.8} speed={0.25} color="#7BB8FF" opacity={0.55} />
