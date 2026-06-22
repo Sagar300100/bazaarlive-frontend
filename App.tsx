@@ -687,7 +687,7 @@ const App: React.FC = () => {
           );
         }
         return (
-          <ImmersiveLanding
+          <LandingPage
             onLoginClick={() => setIsLoginModalOpen(true)}
             onBecomeSellerClick={handleSellerOnboardingOpen}
             onNavigate={navigate}
