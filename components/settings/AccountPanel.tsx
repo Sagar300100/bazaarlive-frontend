@@ -1,21 +1,21 @@
 
 import React, { useState } from 'react';
 import { ChevronRightIcon } from '../Icons';
-import AadhaarModal from '../modals/AadhaarModal';
+import DigiLockerModal from '../modals/DigiLockerModal';
 import ChangeEmailModal from '../modals/ChangeEmailModal';
 import ChangePasswordModal from '../modals/ChangePasswordModal';
 import DeleteAccountModal from '../modals/DeleteAccountModal';
 
 const AccountPanel: React.FC = () => {
     const [isAadhaarVerified, setIsAadhaarVerified] = useState(false);
-    const [isAadhaarModalOpen, setIsAadhaarModalOpen] = useState(false);
+    const [isDigiLockerModalOpen, setIsDigiLockerModalOpen] = useState(false);
     const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     const handleAadhaarSuccess = () => {
         setIsAadhaarVerified(true);
-        setIsAadhaarModalOpen(false);
+        setIsDigiLockerModalOpen(false);
     };
 
     const NAVY = "#1B3A6B";
@@ -46,7 +46,7 @@ const AccountPanel: React.FC = () => {
                                     Verified
                                 </div>
                             ) : (
-                                <button onClick={() => setIsAadhaarModalOpen(true)} className="font-bold py-2.5 px-5 rounded-lg transition-all" style={{ background: NAVY, color: "white", boxShadow: "0 2px 8px rgba(27,58,107,0.25)" }}
+                                <button onClick={() => setIsDigiLockerModalOpen(true)} className="font-bold py-2.5 px-5 rounded-lg transition-all" style={{ background: NAVY, color: "white", boxShadow: "0 2px 8px rgba(27,58,107,0.25)" }}
                                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = BLUE; }}
                                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = NAVY; }}>
                                     Verify With Aadhaar
@@ -97,7 +97,7 @@ const AccountPanel: React.FC = () => {
                 </div>
             </div>
         </div>
-        <AadhaarModal isOpen={isAadhaarModalOpen} onClose={() => setIsAadhaarModalOpen(false)} onVerifySuccess={handleAadhaarSuccess} />
+        <DigiLockerModal isOpen={isDigiLockerModalOpen} onClose={() => setIsDigiLockerModalOpen(false)} />
         <ChangeEmailModal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} />
         <ChangePasswordModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} />
         <DeleteAccountModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} />

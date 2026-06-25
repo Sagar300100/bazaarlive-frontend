@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
-import Lenis from "lenis";
+// import Lenis from "lenis"; // removed — global RAF caused jank everywhere
 
 import { Header } from "./components/Header";
 import { LandingPage } from "./components/LandingPage";
 import ImmersiveLanding from "./components/ImmersiveLanding";
-import SnakeCursor from "./components/SnakeCursor";
-import CinematicOverlay from "./components/CinematicOverlay";
-import GlobalAurora from "./components/GlobalAurora";
+// SnakeCursor removed — mousemove RAF loop caused jank
+// GlobalAurora + CinematicOverlay scoped to landing-only (LandingPage owns them now)
 import AccountSettingsPage from "./pages/AccountSettingsPage";
 import LoginModalV2 from "./components/LoginModalV2";
 import OnboardingModal from "./components/OnboardingModal";
@@ -43,7 +42,7 @@ import {
 } from "firebase/auth";
 import { auth } from "./src/firebase";
 
-import { verifyEmail, resetPasswordAppwrite } from "./services/api";
+import { verifyEmail, resetPasswordAppwrite, completeDigiLocker } from "./services/api";
 import LiveSessionService from "./services/LiveSessionService";
 
 /* ---------------- URL intent helpers (Firebase + legacy) ---------------- */
@@ -291,22 +290,8 @@ const initialFiltersState: Filters = {
 
 /* ======================== APP ======================== */
 const App: React.FC = () => {
-  // Buttery smooth scroll (Lenis) — applies globally
-  useEffect(() => {
-    const lenis = new Lenis({
-      duration: 1.1,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      smoothWheel: true,
-      wheelMultiplier: 1,
-    });
-    let raf = 0;
-    const tick = (time: number) => {
-      lenis.raf(time);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => { cancelAnimationFrame(raf); lenis.destroy(); };
-  }, []);
+  // Lenis removed — global RAF every frame caused jank on non-landing pages
+  // (Account Settings, Buyer Home etc.). Native scroll is fast on all devices.
 
   const [currentPage, setCurrentPage] = useState("home");
   const navStack = React.useRef<string[]>([]);
@@ -339,6 +324,51 @@ const App: React.FC = () => {
 
   const [emailVerified, setEmailVerified] = useState<boolean>(false);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [digilockerNotice, setDigilockerNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+
+  // DigiLocker round-trip handler. After Meri Pehchaan redirects back to
+  // anynall.com with ?digilocker=complete we read the session id we stashed
+  // before leaving, ask the backend to finalise the verification, and show
+  // a result banner.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("digilocker") !== "complete") return;
+    const sessionId = window.localStorage.getItem("anynall_digilocker_session") || "";
+    // Clean the URL immediately so a reload doesn't re-fire the call.
+    const cleanUrl = window.location.pathname + window.location.hash;
+    window.history.replaceState({}, "", cleanUrl);
+    if (!sessionId) {
+      setDigilockerNotice({ kind: "error", message: "Could not find your DigiLocker session. Please retry verification." });
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await completeDigiLocker(sessionId);
+        if (cancelled) return;
+        try {
+          window.localStorage.removeItem("anynall_digilocker_session");
+          window.localStorage.removeItem("anynall_digilocker_started_at");
+        } catch {}
+        if (res.verified) {
+          setDigilockerNotice({ kind: "success", message: `Aadhaar verified via DigiLocker. Welcome, ${res.name || ""}.` });
+        } else if (res.error === "NAME_MISMATCH") {
+          setDigilockerNotice({
+            kind: "error",
+            message: `Aadhaar shows "${res.aadhaarName || "another name"}" but your account name is "${res.accountName || "unknown"}". Update your account name to match, then retry.`,
+          });
+        } else if (res.error === "ACCOUNT_NAME_MISSING") {
+          setDigilockerNotice({ kind: "error", message: "Your account has no name set. Add your full legal name in Account Settings, then retry." });
+        } else {
+          setDigilockerNotice({ kind: "error", message: res.message || "DigiLocker verification did not complete. Please retry." });
+        }
+      } catch (err: any) {
+        if (cancelled) return;
+        setDigilockerNotice({ kind: "error", message: err?.message || "DigiLocker verification failed. Please retry." });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Enforce "verify before login"
   useEffect(() => {
@@ -351,12 +381,10 @@ const App: React.FC = () => {
         }
 
         if (!u.emailVerified) {
-          try {
-            await sendEmailVerification(u);
-          } catch (e) {
-            console.error("sendEmailVerification failed", e);
-          }
-
+          // Do NOT call sendEmailVerification here — register() already sends
+          // one. Re-sending on every auth-state change resulted in duplicate
+          // verification emails on signup. If the user needs a fresh link
+          // (link expired etc.) they should use the "Resend" path explicitly.
           setAuthNotice(
             `Please verify your email address. We've sent a verification link to ${
               u.email ?? "your email"
@@ -857,13 +885,30 @@ const App: React.FC = () => {
 
   return (
     <div className="bg-gray-900 min-h-screen" style={{ position: "relative" }}>
-      <GlobalAurora />
-      <SnakeCursor />
-      <CinematicOverlay />
-
       {authNotice && (
         <div className="bg-yellow-400 text-black text-center py-2 px-4 text-sm">
           {authNotice}
+        </div>
+      )}
+
+      {digilockerNotice && (
+        <div
+          className="text-center py-3 px-4 text-sm flex items-center justify-center gap-3"
+          style={{
+            background: digilockerNotice.kind === "success" ? "#DCFCE7" : "#FEE2E2",
+            color: digilockerNotice.kind === "success" ? "#14532D" : "#7F1D1D",
+            borderBottom: `1.5px solid ${digilockerNotice.kind === "success" ? "#86EFAC" : "#FCA5A5"}`,
+          }}
+        >
+          <span>{digilockerNotice.message}</span>
+          <button
+            onClick={() => setDigilockerNotice(null)}
+            className="font-bold ml-2"
+            style={{ color: "inherit", opacity: 0.7 }}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
         </div>
       )}
 

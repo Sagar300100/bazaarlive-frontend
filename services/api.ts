@@ -742,6 +742,37 @@ export async function verifyAadhaarOtp(payload: {
   }>("/api/aadhaar/verify-otp", { method: "POST", body: JSON.stringify(payload) }, /*needsAuth*/ true);
 }
 
+// ---------- DigiLocker verification (preferred over OTP-OKYC) ----------
+// Init returns a Meri Pehchaan URL; we redirect the user there. On return
+// the app calls complete() with the session id we stashed.
+export async function initDigiLocker() {
+  return j<{ sessionId: string; authUrl: string }>(
+    "/api/digilocker/init",
+    { method: "POST", body: JSON.stringify({}) },
+    /*needsAuth*/ true
+  );
+}
+
+export async function completeDigiLocker(sessionId: string) {
+  return j<{
+    verified: boolean;
+    error?: "NAME_MISMATCH" | "ACCOUNT_NAME_MISSING" | "DIGILOCKER_INCOMPLETE" | "DOC_PARSE_FAILED";
+    message?: string;
+    accountName?: string;
+    aadhaarName?: string;
+    maskedAadhaar?: string;
+    name?: string;
+    dob?: string;
+    gender?: string;
+    address?: any;
+    verifiedVia?: "digilocker";
+  }>(
+    "/api/digilocker/complete",
+    { method: "POST", body: JSON.stringify({ sessionId }) },
+    /*needsAuth*/ true
+  );
+}
+
 // ---------- UPI Autopay (escrow stub) ----------
 export async function setupUpiAutopay(params: {
   amount: number;
