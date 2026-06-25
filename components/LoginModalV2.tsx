@@ -2,9 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { OTPInput, SlotProps } from "input-otp";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Lock, User, ArrowRight, Loader2, X, ShieldCheck, Sparkles } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Loader2, X, ShieldCheck, Sparkles, CheckCircle2 } from "lucide-react";
 import {
   login as apiLogin,
   register as apiRegister,
@@ -12,8 +11,8 @@ import {
 } from "../services/api";
 
 /* ══════════════════════════════════════════════
-   LoginModalV2 — modern auth with RHF + Zod + OTP
-   Pre-launch friendly: clean, focused, premium feel
+   LoginModalV2 — modern auth with RHF + Zod
+   Signup/reset use Firebase email links — no custom OTP layer.
    ══════════════════════════════════════════════ */
 
 interface Props {
@@ -23,7 +22,8 @@ interface Props {
   openInForgot?: boolean;
 }
 
-type Step = "login" | "register" | "forgot" | "otp";
+type Step = "login" | "register" | "forgot" | "check-email";
+type CheckEmailFlow = "register" | "reset";
 
 /* ── Zod schemas ── */
 const loginSchema = z.object({
@@ -48,17 +48,16 @@ const forgotSchema = z.object({
 type ForgotVals = z.infer<typeof forgotSchema>;
 
 const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openInForgot }) => {
-  const [step, setStep]       = useState<Step>(openInForgot ? "forgot" : "login");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpFor,  setOtpFor]  = useState<{ email: string; flow: "login" | "register" | "reset" } | null>(null);
-  const [busy,    setBusy]    = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const [step, setStep]         = useState<Step>(openInForgot ? "forgot" : "login");
+  const [sentTo, setSentTo]     = useState<{ email: string; flow: CheckEmailFlow } | null>(null);
+  const [busy,    setBusy]      = useState(false);
+  const [error,   setError]     = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setStep(openInForgot ? "forgot" : "login");
       setError(null);
-      setOtpCode("");
+      setSentTo(null);
     }
   }, [isOpen, openInForgot]);
 
@@ -92,9 +91,10 @@ const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openIn
     setBusy(true); setError(null);
     try {
       await apiRegister(data.email, data.password, data.name);
-      // After register: show OTP step (simulated; real impl would call apiSendOtp)
-      setOtpFor({ email: data.email, flow: "register" });
-      setStep("otp");
+      // apiRegister already calls Firebase sendEmailVerification.
+      // Show a single "check your email" panel — no custom OTP step.
+      setSentTo({ email: data.email, flow: "register" });
+      setStep("check-email");
     } catch (e: any) {
       setError(e?.message || "Could not create account.");
     } finally {
@@ -106,29 +106,10 @@ const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openIn
     setBusy(true); setError(null);
     try {
       await apiRequestReset(data.email);
-      setOtpFor({ email: data.email, flow: "reset" });
-      setStep("otp");
+      setSentTo({ email: data.email, flow: "reset" });
+      setStep("check-email");
     } catch (e: any) {
       setError(e?.message || "Could not send reset email.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleOtpComplete = async (code: string) => {
-    if (code.length !== 6 || !otpFor) return;
-    setBusy(true); setError(null);
-    try {
-      // Real impl would verify OTP here. We simulate success.
-      await new Promise(r => setTimeout(r, 700));
-      if (otpFor.flow === "register") {
-        onLoginSuccess({ id: "new", email: otpFor.email });
-        onClose();
-      } else if (otpFor.flow === "reset") {
-        setStep("login");
-      }
-    } catch (e: any) {
-      setError("Invalid code. Try again.");
     } finally {
       setBusy(false);
     }
@@ -176,10 +157,10 @@ const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openIn
 
         <div style={{ position: "relative", padding: "40px 32px 32px" }}>
           <AnimatePresence mode="wait">
-            {step === "login"    && <LoginPanel    key="login"    onSubmit={handleLogin}    onSwitch={(s) => { setStep(s); setError(null); }} busy={busy} error={error} />}
-            {step === "register" && <RegisterPanel key="register" onSubmit={handleRegister} onSwitch={(s) => { setStep(s); setError(null); }} busy={busy} error={error} />}
-            {step === "forgot"   && <ForgotPanel   key="forgot"   onSubmit={handleForgot}   onSwitch={(s) => { setStep(s); setError(null); }} busy={busy} error={error} />}
-            {step === "otp"      && <OtpPanel      key="otp"      email={otpFor?.email || ""} code={otpCode} setCode={setOtpCode} onComplete={handleOtpComplete} onBack={() => { setStep(otpFor?.flow === "register" ? "register" : "forgot"); setError(null); }} busy={busy} error={error} />}
+            {step === "login"       && <LoginPanel      key="login"       onSubmit={handleLogin}    onSwitch={(s) => { setStep(s); setError(null); }} busy={busy} error={error} />}
+            {step === "register"    && <RegisterPanel   key="register"    onSubmit={handleRegister} onSwitch={(s) => { setStep(s); setError(null); }} busy={busy} error={error} />}
+            {step === "forgot"      && <ForgotPanel     key="forgot"      onSubmit={handleForgot}   onSwitch={(s) => { setStep(s); setError(null); }} busy={busy} error={error} />}
+            {step === "check-email" && <CheckEmailPanel key="check-email" email={sentTo?.email || ""} flow={sentTo?.flow || "register"} onDone={onClose} onBack={() => { setStep(sentTo?.flow === "register" ? "register" : "forgot"); setError(null); }} />}
           </AnimatePresence>
         </div>
       </motion.div>
@@ -353,62 +334,50 @@ const ForgotPanel: React.FC<{ onSubmit: (v: ForgotVals) => void; onSwitch: (s: S
 };
 
 /* ══════════════════════════════════════════════
-   OTP PANEL — input-otp with custom slot UI
+   CHECK-EMAIL PANEL — confirmation after register/reset
+   We rely on Firebase email links, so no code-entry UI.
    ══════════════════════════════════════════════ */
-const OtpSlot: React.FC<SlotProps> = ({ char, isActive, hasFakeCaret }) => (
-  <div
-    style={{
-      position: "relative",
-      width: 48, height: 56, borderRadius: 12,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      background: isActive ? "white" : "#F8FAFC",
-      border: `1.5px solid ${isActive ? "#2B6CB8" : "#E2E8F0"}`,
-      boxShadow: isActive ? "0 0 0 4px rgba(43,108,184,0.12)" : "none",
-      fontFamily: "Outfit, monospace", fontWeight: 700, fontSize: 22, color: "#0F2A52",
-      transition: "all 160ms ease",
-    }}
-  >
-    {char}
-    {hasFakeCaret && (
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-        <span style={{ width: 1.5, height: 22, background: "#2B6CB8", animation: "lm-caret 1s steps(2) infinite" }} />
-      </div>
-    )}
-  </div>
-);
-
-const OtpPanel: React.FC<{ email: string; code: string; setCode: (c: string) => void; onComplete: (c: string) => void; onBack: () => void; busy: boolean; error: string | null }> = ({ email, code, setCode, onComplete, onBack, busy, error }) => (
+const CheckEmailPanel: React.FC<{ email: string; flow: CheckEmailFlow; onDone: () => void; onBack: () => void }> = ({ email, flow, onDone, onBack }) => (
   <motion.div {...fadeSlide}>
-    <Title eyebrow="VERIFY" title="Check your inbox" sub={`We sent a 6-digit code to ${email || "your email"}.`} />
-    {error && <ErrorBanner msg={error} />}
-
-    <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
-      <OTPInput
-        value={code}
-        onChange={(v) => { setCode(v); if (v.length === 6) onComplete(v); }}
-        maxLength={6}
-        containerClassName="flex items-center gap-2"
-        render={({ slots }) => (
-          <div style={{ display: "flex", gap: 8 }}>
-            {slots.slice(0, 3).map((s, i) => <OtpSlot key={i} {...s} />)}
-            <div style={{ alignSelf: "center", color: "#94A3B8", fontWeight: 700 }}>–</div>
-            {slots.slice(3, 6).map((s, i) => <OtpSlot key={i + 3} {...s} />)}
-          </div>
-        )}
-      />
+    <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+      <div style={{
+        width: 72, height: 72, borderRadius: 24,
+        background: "linear-gradient(135deg,#E0EFFF,#F8FAFC)",
+        border: "1.5px solid rgba(43,108,184,0.2)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: "0 8px 24px rgba(43,108,184,0.18)",
+      }}>
+        <Mail size={32} style={{ color: "#2B6CB8" }} />
+      </div>
     </div>
 
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 13, color: "#475569", marginBottom: 18 }}>
-      <ShieldCheck size={14} style={{ color: "#22C55E" }} />
-      Code expires in 10 minutes
+    <Title
+      eyebrow={flow === "register" ? "ALMOST DONE" : "PASSWORD RESET"}
+      title="Check your inbox"
+      sub={
+        flow === "register"
+          ? `We sent a verification link to ${email || "your email"}. Click it to activate your account.`
+          : `We sent a reset link to ${email || "your email"}. Click it to set a new password.`
+      }
+    />
+
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10,
+      background: "rgba(34,197,94,0.08)",
+      border: "1.5px solid rgba(34,197,94,0.2)",
+      borderRadius: 12, padding: "10px 14px",
+      fontSize: 13, color: "#15803D", marginBottom: 22,
+    }}>
+      <CheckCircle2 size={16} />
+      <span>Link expires in 1 hour. Check spam if you don't see it.</span>
     </div>
 
-    <PrimaryBtn type="button" busy={busy} onClick={() => onComplete(code)}>
-      Verify Code <ArrowRight size={16} />
+    <PrimaryBtn type="button" busy={false} onClick={onDone}>
+      Got it <ArrowRight size={16} />
     </PrimaryBtn>
 
     <div style={{ textAlign: "center", marginTop: 22, fontSize: 13, color: "#475569" }}>
-      Didn't get it? <SwitchLink onClick={onBack}>Try a different email</SwitchLink>
+      Wrong email? <SwitchLink onClick={onBack}>Try a different email</SwitchLink>
     </div>
   </motion.div>
 );

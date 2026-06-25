@@ -6,11 +6,16 @@ const router = express.Router();
 
 const VALID_AADHAAR = /^\d{12}$/;
 const VALID_VID = /^\d{16}$/;
-const clientId = process.env.SETU_CLIENT_ID || "";
-const clientSecret = process.env.SETU_CLIENT_SECRET || "";
-const setuBaseUrl =
-  process.env.SETU_BASE_URL?.replace(/\/$/, "") ||
-  "https://sandbox.setu.co/aadhaar";
+
+const apiKey = process.env.SANDBOX_API_KEY || "";
+const apiSecret = process.env.SANDBOX_API_SECRET || "";
+// Sandbox.co.in has two environments: test-api (sandbox test data only)
+// and api (production — accepts both real Aadhaar and their test numbers).
+// We default to production because trial accounts are issued key_live_* keys
+// that only authenticate against production. Override via SANDBOX_BASE_URL.
+const sandboxBaseUrl =
+  process.env.SANDBOX_BASE_URL?.replace(/\/$/, "") ||
+  "https://api.sandbox.co.in";
 
 function compactNumber(value) {
   return typeof value === "string" ? value.replace(/\s+/g, "") : "";
@@ -53,6 +58,20 @@ function isValidId(id) {
   return isValidAadhaar(id);
 }
 
+// Sandbox test Aadhaar numbers bypass Verhoeff so devs can exercise the flow
+const SANDBOX_TEST_IDS = new Set([
+  "123456789012",
+  "123456789013",
+  "123456789015",
+  "123456789016",
+  "123456789017",
+  "123456789018",
+  "123456789020",
+]);
+function acceptsId(id) {
+  return SANDBOX_TEST_IDS.has(id) || isValidId(id);
+}
+
 function maskId(id) {
   if (!id) return "XXXX-XXXX-XXXX";
   const trimmed = compactNumber(id);
@@ -60,25 +79,67 @@ function maskId(id) {
   return `${"X".repeat(Math.max(0, trimmed.length - 4))}${suffix}`;
 }
 
-function upstreamHeaders() {
-  if (!clientId || !clientSecret) {
-    throw new Error("Missing Setu credentials");
+// Token cache — Sandbox JWT lasts 24h; refresh 5 min early.
+let cachedToken = null;
+let cachedTokenExpiresAt = 0;
+const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000;
+
+async function getAccessToken({ force = false } = {}) {
+  const now = Date.now();
+  if (!force && cachedToken && now < cachedTokenExpiresAt - TOKEN_REFRESH_MARGIN_MS) {
+    return cachedToken;
   }
+  if (!apiKey || !apiSecret) {
+    throw new Error("Missing Sandbox.co.in credentials");
+  }
+  const { data } = await axios.post(
+    `${sandboxBaseUrl}/authenticate`,
+    {},
+    {
+      headers: {
+        "x-api-key": apiKey,
+        "x-api-secret": apiSecret,
+        "x-api-version": "1.0",
+        "Content-Type": "application/json",
+      },
+      timeout: 8000,
+    }
+  );
+  const token = data?.data?.access_token || data?.access_token;
+  if (!token) {
+    throw new Error("Sandbox authenticate returned no access_token");
+  }
+  cachedToken = token;
+  cachedTokenExpiresAt = now + TOKEN_TTL_MS;
+  return token;
+}
+
+async function authHeaders() {
+  const token = await getAccessToken();
   return {
-    "X-Client-Id": clientId,
-    "X-Client-Secret": clientSecret,
+    Authorization: token,
+    "x-api-key": apiKey,
+    "x-api-version": "2.0",
     "Content-Type": "application/json",
   };
 }
 
 function handleUpstreamError(error, res) {
+  // Drop cached JWT on auth failure so the next request re-authenticates.
+  if (error?.response?.status === 401 || error?.response?.status === 403) {
+    cachedToken = null;
+    cachedTokenExpiresAt = 0;
+  }
   const status = error?.response?.status || 502;
-  const code = error?.response?.data?.code || "AADHAAR_UPSTREAM_ERROR";
+  const upstream = error?.response?.data;
+  const code = upstream?.code || upstream?.error || "AADHAAR_UPSTREAM_ERROR";
   const message =
-    error?.response?.data?.message ||
+    upstream?.message ||
+    upstream?.data?.message ||
     error?.message ||
     "Verification service failed";
-  return res.status(status).json({ error: code, message });
+  return res.status(status === 200 ? 502 : status).json({ error: String(code), message });
 }
 
 const sendOtpLimiter = rateLimit({
@@ -102,21 +163,36 @@ router.post("/send-otp", sendOtpLimiter, async (req, res) => {
   const idNumber = compactNumber(req.body?.idNumber);
   const consent = Boolean(req.body?.consent);
 
-  if (!consent || !isValidId(idNumber)) {
+  if (!consent || !acceptsId(idNumber)) {
     return res.status(400).json({ error: "INVALID_INPUT" });
   }
 
   try {
+    const headers = await authHeaders();
     const { data } = await axios.post(
-      `${setuBaseUrl}/send-otp`,
-      { id_number: idNumber, consent: true },
-      { headers: upstreamHeaders(), timeout: 8000 }
+      `${sandboxBaseUrl}/kyc/aadhaar/okyc/otp`,
+      {
+        "@entity": "in.co.sandbox.kyc.aadhaar.okyc.otp.request",
+        aadhaar_number: idNumber,
+        consent: "Y",
+        reason: "Seller KYC for Any&All marketplace",
+      },
+      { headers, timeout: 12000 }
     );
 
+    const inner = data?.data;
+    const referenceId = inner?.reference_id;
+    if (referenceId === undefined || referenceId === null) {
+      return res.status(502).json({
+        error: "NO_REFERENCE_ID",
+        message: inner?.message || "Upstream did not return a reference_id",
+      });
+    }
+
     return res.json({
-      txnId: data?.txn_id,
-      maskedAadhaar: data?.masked_aadhaar || maskId(idNumber),
-      expiresInSeconds: data?.expires_in || 300,
+      txnId: String(referenceId),
+      maskedAadhaar: maskId(idNumber),
+      expiresInSeconds: 300,
     });
   } catch (error) {
     return handleUpstreamError(error, res);
@@ -128,24 +204,35 @@ router.post("/verify-otp", verifyOtpLimiter, async (req, res) => {
   const otp = compactNumber(req.body?.otp);
   const txnId = req.body?.txnId;
 
-  if (!txnId || !otp || otp.length < 6 || !isValidId(idNumber)) {
+  if (!txnId || !otp || otp.length < 6 || !acceptsId(idNumber)) {
     return res.status(400).json({ error: "INVALID_INPUT" });
   }
 
   try {
+    const headers = await authHeaders();
     const { data } = await axios.post(
-      `${setuBaseUrl}/verify-otp`,
-      { id_number: idNumber, otp, txn_id: txnId },
-      { headers: upstreamHeaders(), timeout: 8000 }
+      `${sandboxBaseUrl}/kyc/aadhaar/okyc/otp/verify`,
+      {
+        "@entity": "in.co.sandbox.kyc.aadhaar.okyc.request",
+        reference_id: String(txnId),
+        otp,
+      },
+      { headers, timeout: 12000 }
     );
 
+    const inner = data?.data;
+    const verified = inner?.status === "VALID";
+
     return res.json({
-      verified: data?.status === "success",
-      maskedAadhaar: data?.masked_aadhaar || maskId(idNumber),
-      name: data?.name,
-      dob: data?.dob,
-      address: data?.address,
-      referenceId: data?.reference_id || data?.txn_id || txnId,
+      verified,
+      message: verified ? undefined : inner?.message || "Verification failed",
+      maskedAadhaar: maskId(idNumber),
+      name: inner?.name,
+      dob: inner?.date_of_birth,
+      gender: inner?.gender,
+      address: inner?.full_address,
+      shareCode: inner?.share_code,
+      referenceId: String(inner?.reference_id ?? txnId),
     });
   } catch (error) {
     return handleUpstreamError(error, res);

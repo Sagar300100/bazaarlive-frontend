@@ -144,8 +144,15 @@ export const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ onNavigate, on
                     </div>
                 </div>
 
-                {/* ── Tab content ── */}
-                <div className="p-4 overflow-y-auto flex-1">
+                {/* ── Tab content ──
+                    minHeight: 0 is required on a flex child for overflow-y to
+                    actually engage when the parent has flex-direction: column.
+                    Without it, the child won't shrink below its content height
+                    and the scroll is silently disabled. */}
+                <div
+                    className="p-4 overflow-y-auto flex-1"
+                    style={{ minHeight: 0, WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}
+                >
                     {activeTab === "Selling" && (
                         <div className="space-y-3">
                             <div className="grid grid-cols-3 gap-3">

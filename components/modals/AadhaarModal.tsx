@@ -162,8 +162,8 @@ const AadhaarModal: React.FC<AadhaarModalProps> = ({
       case 1:
         return (
           <form onSubmit={handleAadhaarSubmit}>
-            <h2 className="text-2xl font-bold text-white mb-2">Verify Aadhaar</h2>
-            <p className="text-gray-400 mb-6">
+            <h2 className="text-2xl font-bold text-[#0F2A52] mb-2">Verify Aadhaar</h2>
+            <p className="text-[#475569] mb-6">
               Enter your Aadhaar (12) or VID (16). We will send an OTP to your
               Aadhaar-linked mobile after your consent.
             </p>
@@ -172,17 +172,17 @@ const AadhaarModal: React.FC<AadhaarModalProps> = ({
                 type="text"
                 value={aadhaar}
                 onChange={(e) => setAadhaar(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full px-4 py-3 bg-white border border-[#E2E8F0] rounded-lg text-[#0F2A52] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#2B6CB8]"
                 placeholder="XXXX XXXX XXXX"
                 maxLength={19}
                 required
               />
-              <label className="flex items-start gap-2 text-sm text-gray-300">
+              <label className="flex items-start gap-2 text-sm text-[#334155]">
                 <input
                   type="checkbox"
                   checked={consent}
                   onChange={(e) => setConsent(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-gray-500 text-orange-500 focus:ring-orange-500"
+                  className="mt-1 h-4 w-4 rounded border-[#94A3B8] text-[#2B6CB8] focus:ring-[#2B6CB8]"
                   required
                 />
                 <span>
@@ -196,7 +196,7 @@ const AadhaarModal: React.FC<AadhaarModalProps> = ({
               <button
                 type="submit"
                 disabled={isSending}
-                className="mt-2 w-full py-3 bg-orange-600 hover:bg-orange-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-white font-bold transition-colors"
+                className="mt-2 w-full py-3 bg-[#1B3A6B] hover:bg-[#2B6CB8] disabled:bg-[#94A3B8] disabled:cursor-not-allowed rounded-lg text-white font-bold transition-colors"
               >
                 {isSending ? "Sending OTP…" : "Send OTP"}
               </button>
@@ -206,8 +206,8 @@ const AadhaarModal: React.FC<AadhaarModalProps> = ({
       case 2:
         return (
           <form onSubmit={handleOtpSubmit}>
-            <h2 className="text-2xl font-bold text-white mb-2">Enter OTP</h2>
-            <p className="text-gray-400 mb-4">
+            <h2 className="text-2xl font-bold text-[#0F2A52] mb-2">Enter OTP</h2>
+            <p className="text-[#475569] mb-4">
               OTP sent to your Aadhaar-linked mobile. ID: {maskId(cleanAadhaar)}
             </p>
             <div className="space-y-4">
@@ -215,7 +215,7 @@ const AadhaarModal: React.FC<AadhaarModalProps> = ({
                 type="text"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full px-4 py-3 bg-white border border-[#E2E8F0] rounded-lg text-[#0F2A52] placeholder-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#2B6CB8]"
                 placeholder="6-digit OTP"
                 maxLength={6}
                 required
@@ -230,14 +230,14 @@ const AadhaarModal: React.FC<AadhaarModalProps> = ({
                     setStatus("");
                     setError("");
                   }}
-                  className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-white font-semibold transition-colors"
+                  className="flex-1 py-3 bg-[#E2E8F0] hover:bg-[#CBD5E1] rounded-lg text-[#0F2A52] font-semibold transition-colors"
                 >
                   Edit Aadhaar
                 </button>
                 <button
                   type="submit"
                   disabled={isVerifying}
-                  className="flex-1 py-3 bg-orange-600 hover:bg-orange-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-white font-bold transition-colors"
+                  className="flex-1 py-3 bg-[#1B3A6B] hover:bg-[#2B6CB8] disabled:bg-[#94A3B8] disabled:cursor-not-allowed rounded-lg text-white font-bold transition-colors"
                 >
                   {isVerifying ? "Verifying…" : "Verify OTP"}
                 </button>
@@ -262,8 +262,8 @@ const AadhaarModal: React.FC<AadhaarModalProps> = ({
                 />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-white">Verification Successful!</h2>
-            <p className="text-gray-400 mt-2">Your account is now verified.</p>
+            <h2 className="text-2xl font-bold text-[#0F2A52]">Verification Successful!</h2>
+            <p className="text-[#475569] mt-2">Your account is now verified.</p>
           </div>
         );
     }
@@ -271,11 +271,17 @@ const AadhaarModal: React.FC<AadhaarModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(7,13,27,0.72)", backdropFilter: "blur(12px)" }}
       onClick={handleClose}
     >
       <div
-        className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md m-4 p-8"
+        className="rounded-2xl shadow-2xl w-full max-w-md m-4 p-8"
+        style={{
+          background: "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)",
+          border: "1.5px solid rgba(43,108,184,0.18)",
+          boxShadow: "0 30px 100px rgba(15,42,82,0.45)",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {renderStep()}

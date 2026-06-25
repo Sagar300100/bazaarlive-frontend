@@ -5,6 +5,7 @@
  */
 
 import { onRequest } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
@@ -12,6 +13,10 @@ import rateLimit from "express-rate-limit";
 import aadhaarRouter from "./aadhaarRouter.js";
 import analyticsRouter from "./analyticsRouter.js";
 import profileRouter from "./profileRouter.js";
+
+// Secrets must be declared so Firebase injects them into the runtime env.
+const sandboxApiKey = defineSecret("SANDBOX_API_KEY");
+const sandboxApiSecret = defineSecret("SANDBOX_API_SECRET");
 
 const app = express();
 
@@ -58,13 +63,18 @@ app.use((err, _req, res, _next) => {
 /* ── Export as Cloud Function ──
    invoker: "public" → allows unauthenticated requests (this is a public API
    protected by our own auth middleware via verifyIdToken on protected routes).
-   Without this, Cloud Run returns 403 Forbidden to all callers. */
+   Without this, Cloud Run returns 403 Forbidden to all callers.
+
+   cors is intentionally omitted here — the express `cors()` middleware above
+   handles it. Setting cors: true here makes Firebase send
+   `Access-Control-Allow-Origin: *`, which the browser rejects on credentialed
+   requests (frontend sends `credentials: "include"`). */
 export const api = onRequest(
   {
     region: "asia-south1",
-    cors: true,
     maxInstances: 10,
     invoker: "public",
+    secrets: [sandboxApiKey, sandboxApiSecret],
   },
   app
 );
