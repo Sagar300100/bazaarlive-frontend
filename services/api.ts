@@ -40,6 +40,7 @@ import {
   confirmPasswordReset,
   applyActionCode,
   signOut,
+  updateProfile,
   User,
 } from "firebase/auth";
 
@@ -229,13 +230,18 @@ export async function login(email: string, password: string) {
   return { id: u.uid, email: u.email || "" };
 }
 
-/** Create user and send verification email */
-export async function register(email: string, password: string) {
+/** Create user, set displayName, send verification email */
+export async function register(email: string, password: string, name?: string) {
   const cred = await createUserWithEmailAndPassword(auth, email, password);
+  if (name && name.trim()) {
+    // displayName is what Aadhaar verification will compare against,
+    // so it must be saved before any KYC flow runs.
+    try { await updateProfile(cred.user, { displayName: name.trim() }); } catch {}
+  }
   try {
     await sendEmailVerification(cred.user, { url: buildContinueUrl() });
   } catch {}
-  return { id: cred.user.uid, email: cred.user.email || "" };
+  return { id: cred.user.uid, email: cred.user.email || "", name: name?.trim() || "" };
 }
 
 /** Logout */
@@ -642,13 +648,16 @@ export async function closeAuction(id: string) {
 }
 
 // ---------- Aadhaar verification ----------
+// Both endpoints require a logged-in user — the backend enforces auth and
+// reads the account's displayName to match against the Aadhaar name.
 export async function sendAadhaarOtp(payload: {
   idNumber: string;
   consent: boolean;
 }) {
   return j<{ txnId?: string; maskedAadhaar?: string; expiresInSeconds?: number }>(
     "/api/aadhaar/send-otp",
-    { method: "POST", body: JSON.stringify(payload) }
+    { method: "POST", body: JSON.stringify(payload) },
+    /*needsAuth*/ true
   );
 }
 
@@ -659,12 +668,16 @@ export async function verifyAadhaarOtp(payload: {
 }) {
   return j<{
     verified: boolean;
+    error?: "NAME_MISMATCH" | "ACCOUNT_NAME_MISSING" | "OTP_FAILED";
+    message?: string;
+    accountName?: string;
+    aadhaarName?: string;
     maskedAadhaar?: string;
     name?: string;
     dob?: string;
     address?: any;
     referenceId?: string;
-  }>("/api/aadhaar/verify-otp", { method: "POST", body: JSON.stringify(payload) });
+  }>("/api/aadhaar/verify-otp", { method: "POST", body: JSON.stringify(payload) }, /*needsAuth*/ true);
 }
 
 // ---------- UPI Autopay (escrow stub) ----------

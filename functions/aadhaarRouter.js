@@ -1,8 +1,44 @@
 import express from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import axios from "axios";
+import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 
 const router = express.Router();
+
+async function authGuard(req, res, next) {
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+  if (!token) return res.status(401).json({ error: "AUTH_REQUIRED" });
+  try {
+    const decoded = await verifyIdToken(token);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    console.warn("[aadhaar] auth failed", err?.message || err);
+    return res.status(401).json({ error: "AUTH_INVALID" });
+  }
+}
+
+// Token-based fuzzy name match. Every account-name token must appear in the
+// Aadhaar tokens; single-letter tokens match as initials (S → Singhal).
+// Handles case, extra whitespace, punctuation.
+function namesMatch(accountName, aadhaarName) {
+  const tokens = (s) =>
+    String(s || "")
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, " ")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+  const userT = tokens(accountName);
+  const aadhaarT = tokens(aadhaarName);
+  if (!userT.length || !aadhaarT.length) return false;
+  return userT.every((t) =>
+    t.length === 1
+      ? aadhaarT.some((a) => a.startsWith(t))
+      : aadhaarT.includes(t)
+  );
+}
 
 const VALID_AADHAAR = /^\d{12}$/;
 const VALID_VID = /^\d{16}$/;
@@ -159,7 +195,7 @@ const verifyOtpLimiter = rateLimit({
   keyGenerator: (req) => `${ipKeyGenerator(req)}:${req.body?.txnId || "missing"}`,
 });
 
-router.post("/send-otp", sendOtpLimiter, async (req, res) => {
+router.post("/send-otp", authGuard, sendOtpLimiter, async (req, res) => {
   const idNumber = compactNumber(req.body?.idNumber);
   const consent = Boolean(req.body?.consent);
 
@@ -199,7 +235,7 @@ router.post("/send-otp", sendOtpLimiter, async (req, res) => {
   }
 });
 
-router.post("/verify-otp", verifyOtpLimiter, async (req, res) => {
+router.post("/verify-otp", authGuard, verifyOtpLimiter, async (req, res) => {
   const idNumber = compactNumber(req.body?.idNumber);
   const otp = compactNumber(req.body?.otp);
   const txnId = req.body?.txnId;
@@ -221,13 +257,70 @@ router.post("/verify-otp", verifyOtpLimiter, async (req, res) => {
     );
 
     const inner = data?.data;
-    const verified = inner?.status === "VALID";
+    const otpValid = inner?.status === "VALID";
+    if (!otpValid) {
+      return res.json({
+        verified: false,
+        error: "OTP_FAILED",
+        message: inner?.message || "Verification failed",
+        maskedAadhaar: maskId(idNumber),
+      });
+    }
+
+    const aadhaarName = inner?.name || "";
+
+    // Fetch the user's registered display name from Firebase Auth.
+    // If it isn't set we can't enforce a match — reject and ask user to add it.
+    const admin = firebaseAdmin();
+    const userRecord = await admin.auth().getUser(req.user.uid);
+    const accountName = userRecord.displayName || req.user.name || "";
+
+    if (!accountName) {
+      return res.status(200).json({
+        verified: false,
+        error: "ACCOUNT_NAME_MISSING",
+        message:
+          "Your account has no name set. Add your full legal name in Account Settings, then retry Aadhaar verification.",
+      });
+    }
+
+    if (!namesMatch(accountName, aadhaarName)) {
+      return res.status(200).json({
+        verified: false,
+        error: "NAME_MISMATCH",
+        message:
+          `Your Aadhaar name does not match the name on your account. Update your account name to match your Aadhaar exactly, then retry.`,
+        accountName,
+        aadhaarName,
+      });
+    }
+
+    // Persist verification status. We store the masked Aadhaar (not the full
+    // number) and the reference id so we can audit without holding raw KYC PII.
+    try {
+      await admin
+        .firestore()
+        .doc(`users/${req.user.uid}`)
+        .set(
+          {
+            aadhaarVerified: true,
+            aadhaarMaskedNumber: maskId(idNumber),
+            aadhaarReferenceId: String(inner?.reference_id ?? txnId),
+            aadhaarVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+            aadhaarNameOnRecord: aadhaarName,
+          },
+          { merge: true }
+        );
+    } catch (err) {
+      console.error("[aadhaar] firestore persist failed", err?.message || err);
+      // We don't fail the request — verification succeeded upstream. The user
+      // can retry; persisting is a best-effort optimisation.
+    }
 
     return res.json({
-      verified,
-      message: verified ? undefined : inner?.message || "Verification failed",
+      verified: true,
       maskedAadhaar: maskId(idNumber),
-      name: inner?.name,
+      name: aadhaarName,
       dob: inner?.date_of_birth,
       gender: inner?.gender,
       address: inner?.full_address,

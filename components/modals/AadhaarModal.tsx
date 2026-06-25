@@ -147,8 +147,22 @@ const AadhaarModal: React.FC<AadhaarModalProps> = ({
           onVerifySuccess();
           reset();
         }, 1500);
+        return;
+      }
+
+      // Backend distinguishes between OTP failure, name mismatch, and
+      // missing account name — show the specific reason so the user
+      // knows what to fix.
+      if (res.error === "NAME_MISMATCH") {
+        setError(
+          `Aadhaar shows "${res.aadhaarName || "another name"}" but your account name is "${res.accountName || "unknown"}". Update your account name in Settings to match your Aadhaar, then retry.`
+        );
+      } else if (res.error === "ACCOUNT_NAME_MISSING") {
+        setError(
+          "Your account has no name set. Add your full legal name in Account Settings, then retry verification."
+        );
       } else {
-        setError("Could not verify OTP. Please request a new one.");
+        setError(res.message || "Could not verify OTP. Please request a new one.");
       }
     } catch (err: any) {
       setError(err?.message || "Verification failed. Please retry.");
