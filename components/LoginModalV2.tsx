@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Lock, User, ArrowRight, Loader2, X, ShieldCheck, Sparkles, CheckCircle2 } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Loader2, X, ShieldCheck, Sparkles, CheckCircle2, AtSign } from "lucide-react";
 import {
   login as apiLogin,
   register as apiRegister,
@@ -34,6 +34,11 @@ type LoginVals = z.infer<typeof loginSchema>;
 
 const registerSchema = z.object({
   name:     z.string().min(2, "Enter your name"),
+  username: z.string()
+    .min(3, "At least 3 characters")
+    .max(20, "Max 20 characters")
+    .regex(/^[a-zA-Z][a-zA-Z0-9_]*$/, "Letters, digits, underscore. Start with a letter.")
+    .transform((v) => v.toLowerCase()),
   email:    z.string().email("Enter a valid email"),
   password: z.string()
     .min(8, "Minimum 8 characters")
@@ -90,7 +95,7 @@ const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openIn
   const handleRegister = async (data: RegisterVals) => {
     setBusy(true); setError(null);
     try {
-      await apiRegister(data.email, data.password, data.name);
+      await apiRegister(data.email, data.password, data.name, data.username);
       // apiRegister already calls Firebase sendEmailVerification.
       // Show a single "check your email" panel — no custom OTP step.
       setSentTo({ email: data.email, flow: "register" });
@@ -298,9 +303,10 @@ const RegisterPanel: React.FC<{ onSubmit: (v: RegisterVals) => void; onSwitch: (
     <motion.form {...fadeSlide} onSubmit={handleSubmit(onSubmit)}>
       <Title eyebrow="JOIN" title="Create your account" sub="Get early access to India's first live-auction marketplace." />
       {error && <ErrorBanner msg={error} />}
-      <Field Icon={User}  placeholder="Full name"      error={errors.name?.message}     registerProps={register("name")}     autoFocus />
-      <Field Icon={Mail}  type="email"    placeholder="Email address" error={errors.email?.message}    registerProps={register("email")} />
-      <Field Icon={Lock}  type="password" placeholder="Create a password" error={errors.password?.message} registerProps={register("password")} />
+      <Field Icon={User}   placeholder="Full name (as on Aadhaar)" error={errors.name?.message}     registerProps={register("name")} autoFocus />
+      <Field Icon={AtSign} placeholder="Username (your shop handle)" error={errors.username?.message} registerProps={register("username")} />
+      <Field Icon={Mail}   type="email"    placeholder="Email address"     error={errors.email?.message}    registerProps={register("email")} />
+      <Field Icon={Lock}   type="password" placeholder="Create a password" error={errors.password?.message} registerProps={register("password")} />
       <PrimaryBtn busy={busy}>
         Create Account <ArrowRight size={16} />
       </PrimaryBtn>

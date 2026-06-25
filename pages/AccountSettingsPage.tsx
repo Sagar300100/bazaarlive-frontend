@@ -32,6 +32,10 @@ interface AccountSettingsPageProps {
   onSellerHubClick: () => void;
 }
 
+const NAVY = "#1B3A6B";
+const BLUE = "#2B6CB8";
+const CREAM = "#F8F5F0";
+
 const SidebarItem: React.FC<{
   icon: React.ReactNode;
   label: string;
@@ -40,13 +44,16 @@ const SidebarItem: React.FC<{
 }> = ({ icon, label, isActive, onClick }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors group ${
+    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+    style={
       isActive
-        ? "bg-orange-500/10 text-orange-500"
-        : "text-gray-300 hover:bg-gray-700/50 hover:text-white"
-    }`}
+        ? { background: "rgba(43,108,184,0.12)", color: NAVY }
+        : { color: NAVY }
+    }
+    onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "rgba(43,108,184,0.06)"; }}
+    onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
   >
-    {icon}
+    <span style={{ color: BLUE, display: "inline-flex" }}>{icon}</span>
     <span>{label}</span>
   </button>
 );
@@ -116,11 +123,11 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({
         return (
           <>
             {/* -------- UPI Payment Settings (new) -------- */}
-            <div className="mb-8 p-6 bg-gray-900 rounded-2xl shadow border border-gray-700">
-              <h3 className="text-lg font-semibold text-white mb-2">
+            <div className="mb-8 p-6 rounded-2xl" style={{ background: "#FFFFFF", border: `1.5px solid rgba(43,108,184,0.14)`, boxShadow: "0 2px 12px rgba(43,108,184,0.06)" }}>
+              <h3 className="text-lg font-bold mb-2" style={{ color: NAVY }}>
                 UPI Payment Settings
               </h3>
-              <p className="text-gray-400 text-sm mb-4">
+              <p className="text-sm mb-4" style={{ color: "#4A7AB5" }}>
                 Add or update your UPI ID (VPA). We will send a{" "}
                 <strong>UPI Collect</strong> request to this ID when you buy
                 from inventory or win a bid.
@@ -134,17 +141,17 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({
                     name="upi"
                     type="text"
                     placeholder="e.g. yourname@okicici"
-                    className="flex-1 px-3 py-2 rounded-md bg-gray-800 text-white placeholder-gray-500 border border-gray-700 focus:border-orange-500 outline-none"
+                    className="flex-1 px-3 py-2.5 rounded-lg outline-none focus:ring-2"
+                    style={{ background: "#F8FAFC", color: NAVY, border: `1.5px solid #E2E8F0` }}
                     autoComplete="off"
                   />
                   <button
                     type="submit"
                     disabled={savingUpi}
-                    className={`px-4 py-2 rounded-md text-white font-medium ${
-                      savingUpi
-                        ? "bg-gray-600 cursor-not-allowed"
-                        : "bg-orange-600 hover:bg-orange-500"
-                    }`}
+                    className="px-5 py-2.5 rounded-lg text-white font-bold disabled:cursor-not-allowed transition-colors"
+                    style={{ background: savingUpi ? "#94a3b8" : NAVY }}
+                    onMouseEnter={(e) => { if (!savingUpi) (e.currentTarget as HTMLButtonElement).style.background = BLUE; }}
+                    onMouseLeave={(e) => { if (!savingUpi) (e.currentTarget as HTMLButtonElement).style.background = NAVY; }}
                   >
                     {savingUpi ? "Saving…" : "Save UPI"}
                   </button>
@@ -154,15 +161,15 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({
                   <div
                     className={`text-sm ${
                       upiMessage.startsWith("✅")
-                        ? "text-green-400"
-                        : "text-red-400"
+                        ? "text-green-600"
+                        : "text-red-500"
                     }`}
                   >
                     {upiMessage}
                   </div>
                 )}
 
-                <div className="text-xs text-gray-500">
+                <div className="text-xs" style={{ color: "#94A3B8" }}>
                   Tip: A valid UPI ID looks like <code>name@bank</code> or{" "}
                     <code>mobile@upi</code>.
                 </div>
@@ -190,24 +197,21 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({
   };
 
   return (
-    <div className="bg-gray-800 text-gray-200 min-h-screen">
+    <div className="min-h-screen" style={{ background: `linear-gradient(180deg, ${CREAM} 0%, #FFFFFF 100%)` }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Sidebar */}
           <aside className="md:col-span-1">
-            <div className="p-4 rounded-lg bg-gray-900 space-y-6">
+            <div className="p-5 rounded-2xl space-y-6" style={{ background: "#FFFFFF", border: `1.5px solid rgba(43,108,184,0.14)`, boxShadow: "0 2px 12px rgba(43,108,184,0.06)" }}>
               {/* User Profile Section */}
               <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xl">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl" style={{ background: `linear-gradient(135deg, ${BLUE}, ${NAVY})` }}>
                     S
                   </div>
                   <div>
-                    <p className="font-bold text-white">sagarsinh</p>
-                    <a
-                      href="#"
-                      className="text-sm text-gray-400 hover:underline"
-                    >
+                    <p className="font-bold" style={{ color: NAVY }}>sagarsinh</p>
+                    <a href="#" className="text-sm hover:underline" style={{ color: "#4A7AB5" }}>
                       View Profile
                     </a>
                   </div>
@@ -215,57 +219,30 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({
               </div>
 
               {/* Navigation */}
-              <nav className="space-y-2">
-                <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <nav className="space-y-1">
+                <h3 className="px-3 text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "#4A7AB5" }}>
                   General
                 </h3>
-                <SidebarItem
-                  icon={<PreferencesIcon />}
-                  label="Preferences"
-                  isActive={activePage === "preferences"}
-                  onClick={() => setActivePage("preferences")}
-                />
-                <SidebarItem
-                  icon={<PaymentIcon />}
-                  label="Payments"
-                  isActive={activePage === "payments"}
-                  onClick={() => setActivePage("payments")}
-                />
-                <SidebarItem
-                  icon={<AddressIcon />}
-                  label="Addresses"
-                  isActive={activePage === "addresses"}
-                  onClick={() => setActivePage("addresses")}
-                />
-                <SidebarItem
-                  icon={<AccountIcon />}
-                  label="Account"
-                  isActive={activePage === "account"}
-                  onClick={() => setActivePage("account")}
-                />
+                <SidebarItem icon={<PreferencesIcon />} label="Preferences" isActive={activePage === "preferences"} onClick={() => setActivePage("preferences")} />
+                <SidebarItem icon={<PaymentIcon />}      label="Payments"    isActive={activePage === "payments"}    onClick={() => setActivePage("payments")} />
+                <SidebarItem icon={<AddressIcon />}      label="Addresses"   isActive={activePage === "addresses"}   onClick={() => setActivePage("addresses")} />
+                <SidebarItem icon={<AccountIcon />}      label="Account"     isActive={activePage === "account"}     onClick={() => setActivePage("account")} />
               </nav>
 
-              <nav className="space-y-2 border-t border-gray-700 pt-6">
-                <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Help & Legal
+              <nav className="space-y-1 pt-5" style={{ borderTop: `1.5px solid rgba(43,108,184,0.12)` }}>
+                <h3 className="px-3 text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "#4A7AB5" }}>
+                  Help &amp; Legal
                 </h3>
-                <SidebarItem
-                  icon={<UserReportsIcon />}
-                  label="User Reports"
-                  isActive={activePage === "reports"}
-                  onClick={() => setActivePage("reports")}
-                />
-                <SidebarItem
-                  icon={<ContactIcon />}
-                  label="Contact Us"
-                  isActive={activePage === "contact"}
-                  onClick={() => setActivePage("contact")}
-                />
+                <SidebarItem icon={<UserReportsIcon />} label="User Reports" isActive={activePage === "reports"} onClick={() => setActivePage("reports")} />
+                <SidebarItem icon={<ContactIcon />}     label="Contact Us"   isActive={activePage === "contact"} onClick={() => setActivePage("contact")} />
               </nav>
             </div>
             <button
               onClick={onSellerHubClick}
-              className="w-full mt-6 flex items-center gap-3 px-4 py-3 rounded-md text-sm font-bold bg-gray-700 hover:bg-gray-600 text-white transition-colors"
+              className="w-full mt-6 flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all"
+              style={{ background: NAVY, color: "white", boxShadow: "0 2px 8px rgba(27,58,107,0.25)" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = BLUE; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = NAVY; }}
             >
               <SellerHubIcon />
               <span>{isSeller ? "Seller Hub" : "Become a Seller"}</span>
@@ -275,9 +252,9 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({
           {/* Content */}
           <main className="md:col-span-3">
             {/* Security block */}
-            <section className="mb-8 p-6 bg-gray-900 rounded-2xl shadow border border-gray-700">
-              <h2 className="text-xl font-semibold text-white mb-2">Security</h2>
-              <p className="text-gray-400 text-sm mb-3">
+            <section className="mb-8 p-6 rounded-2xl" style={{ background: "#FFFFFF", border: `1.5px solid rgba(43,108,184,0.14)`, boxShadow: "0 2px 12px rgba(43,108,184,0.06)" }}>
+              <h2 className="text-xl font-bold mb-2" style={{ color: NAVY }}>Security</h2>
+              <p className="text-sm mb-3" style={{ color: "#4A7AB5" }}>
                 If you&apos;ve changed your password or think your account might
                 be logged in somewhere else, you can force a logout on all other
                 devices.
@@ -287,8 +264,8 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({
                   className={`text-sm mb-3 ${
                     securityMessage.toLowerCase().startsWith("http 401") ||
                     securityMessage.toLowerCase().includes("error")
-                      ? "text-red-400"
-                      : "text-green-400"
+                      ? "text-red-500"
+                      : "text-green-600"
                   }`}
                 >
                   {securityMessage}
@@ -297,7 +274,10 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({
               <button
                 onClick={handleRevokeAllSessions}
                 disabled={revoking}
-                className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-500 disabled:bg-red-800 disabled:cursor-not-allowed text-white font-semibold"
+                className="px-5 py-2.5 rounded-lg disabled:cursor-not-allowed text-white font-bold transition-colors"
+                style={{ background: revoking ? "#94a3b8" : "#DC2626" }}
+                onMouseEnter={(e) => { if (!revoking) (e.currentTarget as HTMLButtonElement).style.background = "#B91C1C"; }}
+                onMouseLeave={(e) => { if (!revoking) (e.currentTarget as HTMLButtonElement).style.background = "#DC2626"; }}
               >
                 {revoking ? "Revoking…" : "Log out from all devices"}
               </button>

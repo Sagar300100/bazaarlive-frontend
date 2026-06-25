@@ -230,18 +230,80 @@ export async function login(email: string, password: string) {
   return { id: u.uid, email: u.email || "" };
 }
 
-/** Create user, set displayName, send verification email */
-export async function register(email: string, password: string, name?: string) {
+/** Check whether a username is free (best-effort; real check is on claim). */
+export async function checkUsername(username: string): Promise<{ available: boolean; reason?: string }> {
+  try {
+    const res = await fetch(`${BASE}/api/profile/check-username?u=${encodeURIComponent(username)}`);
+    if (!res.ok) return { available: false, reason: "CHECK_FAILED" };
+    return await res.json();
+  } catch {
+    return { available: false, reason: "CHECK_FAILED" };
+  }
+}
+
+/** Create user, set displayName, claim username server-side, send verification email */
+export async function register(email: string, password: string, name?: string, username?: string) {
+  const cleanUsername = (username || "").toLowerCase().trim();
+
+  // Pre-check (best-effort) to fail fast before creating a Firebase Auth user
+  // we'd then need to clean up. Race conditions are still caught by the
+  // server-side transaction below.
+  if (cleanUsername) {
+    const check = await checkUsername(cleanUsername);
+    if (!check.available) {
+      const why =
+        check.reason === "RESERVED" ? "That username is reserved." :
+        check.reason === "INVALID_FORMAT" ? "Invalid username format." :
+        `Username @${cleanUsername} is already taken. Try another.`;
+      throw new Error(why);
+    }
+  }
+
   const cred = await createUserWithEmailAndPassword(auth, email, password);
+
   if (name && name.trim()) {
     // displayName is what Aadhaar verification will compare against,
     // so it must be saved before any KYC flow runs.
     try { await updateProfile(cred.user, { displayName: name.trim() }); } catch {}
   }
+
+  // Claim the username atomically server-side. If this fails due to a race
+  // (someone else just claimed it), surface a clear error — the Auth user
+  // exists but they can pick a different username from Account Settings.
+  if (cleanUsername) {
+    try {
+      const token = await getIdToken(cred.user, /*forceRefresh*/ true);
+      const r = await fetch(`${BASE}/api/profile/claim-username`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ username: cleanUsername }),
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        if (data?.error === "USERNAME_TAKEN") {
+          throw new Error(`Username @${cleanUsername} was just taken. Pick another in Account Settings.`);
+        }
+        // Non-fatal — log and continue. User can set username later.
+        console.warn("[register] username claim failed:", data?.error);
+      }
+    } catch (err) {
+      // Don't fail the whole signup over username — the Auth account exists.
+      // Only re-throw if it's the explicit USERNAME_TAKEN we just constructed.
+      if (err instanceof Error && err.message.startsWith("Username @")) throw err;
+      console.warn("[register] username claim threw:", err);
+    }
+  }
+
   try {
     await sendEmailVerification(cred.user, { url: buildContinueUrl() });
   } catch {}
-  return { id: cred.user.uid, email: cred.user.email || "", name: name?.trim() || "" };
+
+  return {
+    id: cred.user.uid,
+    email: cred.user.email || "",
+    name: name?.trim() || "",
+    username: cleanUsername,
+  };
 }
 
 /** Logout */
