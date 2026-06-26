@@ -329,6 +329,10 @@ const App: React.FC = () => {
   // null = not yet checked (treat as not onboarded for routing). After auth
   // we fetch /seller-onboarding once and cache; refresh on completion.
   const [sellerOnboardingComplete, setSellerOnboardingComplete] = useState<boolean | null>(null);
+  // Incremented after DigiLocker success so BecomeSellerPage refetches its
+  // state from the server (instead of showing the stale form fields the user
+  // already filled in).
+  const [sellerRefreshKey, setSellerRefreshKey] = useState(0);
 
   // Fetch seller onboarding status whenever auth flips to verified+logged-in.
   // BecomeSellerPage gates the seller-hub route; we cache here so we don't
@@ -389,6 +393,9 @@ const App: React.FC = () => {
         } catch {}
         if (res.verified) {
           setDigilockerNotice({ kind: "success", message: `Aadhaar verified via DigiLocker. Welcome, ${res.name || ""}.` });
+          // Force BecomeSellerPage to refetch so it shows Aadhaar ✅ and
+          // auto-advances to the PAN step without the user having to refresh.
+          setSellerRefreshKey((k) => k + 1);
         } else if (res.error === "NAME_MISMATCH") {
           setDigilockerNotice({
             kind: "error",
@@ -855,6 +862,7 @@ const App: React.FC = () => {
               />
             ) : (
               <BecomeSellerPage
+                key={`seller-onboarding-${sellerRefreshKey}`}
                 onComplete={() => {
                   setSellerOnboardingComplete(true);
                   // Re-render this same route as the SellerHub once flagged.

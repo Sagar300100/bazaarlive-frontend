@@ -333,6 +333,12 @@ const AadhaarStep: React.FC<{
 /* ── Step 3: PAN ── */
 const PanStep: React.FC<{ verified: boolean; onVerified: () => void }> = ({ verified, onVerified }) => {
   const [pan, setPan] = useState("");
+  // DOB is shown only after backend says we don't have it on file. Most users
+  // verify Aadhaar via DigiLocker which captures DOB automatically, so this
+  // field stays hidden for them. Legacy users (verified before DOB-save
+  // landed) will be asked for it once.
+  const [needsDob, setNeedsDob] = useState(false);
+  const [dob, setDob] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -342,12 +348,17 @@ const PanStep: React.FC<{ verified: boolean; onVerified: () => void }> = ({ veri
     setError(null); setSuccess(null);
     try {
       setBusy(true);
-      const res = await verifyPan({ pan: pan.toUpperCase() });
+      const payload: { pan: string; dateOfBirth?: string } = { pan: pan.toUpperCase() };
+      if (needsDob && dob) payload.dateOfBirth = dob;
+      const res = await verifyPan(payload);
       if (res.verified) {
         setSuccess(`✓ Verified. Name on PAN: ${res.panName}.`);
         setTimeout(() => onVerified(), 1000);
       } else if (res.error === "NAME_MISMATCH") {
         setError(`PAN name "${res.panName}" doesn't match your Aadhaar name. The PAN must be in YOUR name.`);
+      } else if (res.error === "DOB_REQUIRED") {
+        setNeedsDob(true);
+        setError("Please enter your date of birth (as on Aadhaar) and click Verify again.");
       } else {
         setError(res.message || "Could not verify this PAN. Re-check the number.");
       }
@@ -399,6 +410,19 @@ const PanStep: React.FC<{ verified: boolean; onVerified: () => void }> = ({ veri
           style={{ background: "#F8FAFC", color: NAVY, border: "1.5px solid #E2E8F0" }}
         />
       </Field>
+
+      {needsDob && (
+        <Field label="Date of birth" hint="As on your Aadhaar. We need this because your Aadhaar was verified before we started saving DOB.">
+          <input
+            type="date"
+            value={dob}
+            onChange={(e) => setDob(e.target.value)}
+            required={needsDob}
+            className="w-full px-4 py-3 rounded-lg outline-none"
+            style={{ background: "#F8FAFC", color: NAVY, border: "1.5px solid #E2E8F0" }}
+          />
+        </Field>
+      )}
 
       {error && <p className="text-sm" style={{ color: "#DC2626" }}>{error}</p>}
       {success && <p className="text-sm" style={{ color: "#16A34A" }}>{success}</p>}

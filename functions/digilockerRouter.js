@@ -193,7 +193,15 @@ router.post("/complete", authGuard, completeLimiter, async (req, res) => {
     );
     const statusInner = statusResp?.data || {};
     const status = String(statusInner?.status || statusInner?.session_status || "").toUpperCase();
-    if (!status.includes("AUTH") && !status.includes("COMPLETE") && !status.includes("SUCCESS")) {
+    // Sandbox returns "SUCCEEDED" (not "SUCCESS") on a finished session. Other
+    // observed values: AUTHENTICATED, COMPLETED. We accept any of these or
+    // anything starting with SUCC. We reject the obvious negatives instead.
+    const FAILED = ["FAILED", "EXPIRED", "CANCELLED", "REJECTED", "PENDING", "INITIATED"];
+    const isFailed = FAILED.some((s) => status.includes(s));
+    const isOk =
+      !isFailed &&
+      (status.startsWith("SUCC") || status.includes("AUTH") || status.includes("COMPLETE"));
+    if (!isOk) {
       return res.json({
         verified: false,
         error: "DIGILOCKER_INCOMPLETE",
@@ -201,26 +209,80 @@ router.post("/complete", authGuard, completeLimiter, async (req, res) => {
       });
     }
 
-    // 2) Fetch the signed Aadhaar document.
-    const { data: docResp } = await axios.get(
-      `${sandboxBaseUrl}/kyc/digilocker/sessions/${encodeURIComponent(sessionId)}/documents/ADHAR`,
-      { headers, timeout: 15000 }
-    );
-    const doc = docResp?.data || {};
-    const aadhaarName =
-      doc?.name ||
-      doc?.full_name ||
-      doc?.person?.name ||
-      doc?.aadhaar?.name ||
-      "";
-    const aadhaarNumber =
-      doc?.aadhaar_number ||
-      doc?.number ||
-      doc?.aadhaar?.number ||
-      "";
-    const dob = doc?.date_of_birth || doc?.dob || doc?.aadhaar?.dob || "";
-    const gender = doc?.gender || doc?.aadhaar?.gender || "";
-    const address = doc?.full_address || doc?.address || doc?.aadhaar?.address || "";
+    // 2) Fetch the signed Aadhaar document. Sandbox's doc_type code for
+    //    Aadhaar is "AADHAAR" (not UIDAI's legacy "ADHAR"). Try the modern
+    //    code first, fall back to the legacy if Sandbox unexpectedly rejects.
+    let docResp;
+    try {
+      const r = await axios.get(
+        `${sandboxBaseUrl}/kyc/digilocker/sessions/${encodeURIComponent(sessionId)}/documents/AADHAAR`,
+        { headers, timeout: 15000 }
+      );
+      docResp = r.data;
+    } catch (e) {
+      // Some Sandbox tenants still use lowercase. One retry, then bail.
+      if (e?.response?.status === 400) {
+        const r2 = await axios.get(
+          `${sandboxBaseUrl}/kyc/digilocker/sessions/${encodeURIComponent(sessionId)}/documents/aadhaar`,
+          { headers, timeout: 15000 }
+        );
+        docResp = r2.data;
+      } else {
+        throw e;
+      }
+    }
+    // Sandbox returns a signed S3 URL to the actual XML file — they do NOT
+    // parse the UIDAI XML for us. Find the file, download it, then parse.
+    const files = docResp?.data?.files || [];
+    const aadhaarFile =
+      files.find((f) => (f?.metadata?.issuer_id || "").includes("uidai")) ||
+      files[0];
+    if (!aadhaarFile?.url) {
+      return res.json({
+        verified: false,
+        error: "DOC_FETCH_FAILED",
+        message: "DigiLocker did not return an Aadhaar document. Please retry.",
+      });
+    }
+
+    // Pull the signed XML from S3. The URL is already authenticated; do not
+    // forward our Sandbox Authorization header (it'll break the AWS sig).
+    const xmlResp = await axios.get(aadhaarFile.url, {
+      timeout: 15000,
+      responseType: "text",
+      headers: { Accept: "application/xml" },
+      // Important — strip our auth headers; signed URL has its own auth.
+      transformRequest: [(data, headers) => { delete headers.Authorization; delete headers["x-api-key"]; return data; }],
+    });
+    const xml = String(xmlResp?.data || "");
+
+    // Parse the UIDAI XML. Structure is roughly:
+    //   <UidData uid="XXXX">
+    //     <Poi name="SAGAR SINGHAL" dob="DD-MM-YYYY" gender="M"/>
+    //     <Poa house="..." street="..." loc="..." vtc="..." po="..."
+    //          dist="..." subdist="..." state="..." pc="..." country="..."/>
+    //   </UidData>
+    // We use targeted regex because installing fast-xml-parser is overkill
+    // for this fixed schema.
+    function attr(name, source) {
+      const m = source.match(new RegExp(`\\b${name}="([^"]*)"`, "i"));
+      return m ? m[1].trim() : "";
+    }
+
+    const poi = (xml.match(/<Poi\s[^/>]*\/?>/i) || [""])[0];
+    const poa = (xml.match(/<Poa\s[^/>]*\/?>/i) || [""])[0];
+    const uidData = (xml.match(/<UidData\s[^>]*>/i) || [""])[0];
+
+    const aadhaarName = attr("name", poi) || attr("name", xml);
+    const dob = attr("dob", poi);
+    const gender = attr("gender", poi);
+    const aadhaarNumber = attr("uid", uidData);
+    const address = [
+      attr("house", poa), attr("street", poa), attr("loc", poa),
+      attr("vtc", poa), attr("po", poa), attr("subdist", poa),
+      attr("dist", poa), attr("state", poa), attr("pc", poa),
+      attr("country", poa),
+    ].filter(Boolean).join(", ");
 
     if (!aadhaarName) {
       return res.json({
@@ -266,6 +328,9 @@ router.post("/complete", authGuard, completeLimiter, async (req, res) => {
             aadhaarMaskedNumber: maskAadhaar(aadhaarNumber),
             aadhaarVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
             aadhaarNameOnRecord: aadhaarName,
+            aadhaarDob: dob || "",
+            aadhaarGender: gender || "",
+            aadhaarAddress: address || "",
             aadhaarVerifiedVia: "digilocker",
           },
           { merge: true }

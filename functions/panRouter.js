@@ -142,6 +142,30 @@ router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
     });
   }
 
+  // DOB: prefer the value saved during DigiLocker. If missing (legacy verify
+  // before we started saving DOB), accept it from the request body. Always
+  // normalise to DD/MM/YYYY since Sandbox is picky about the format.
+  function normaliseDob(raw) {
+    const s = String(raw || "").trim();
+    if (!s) return "";
+    // Already DD/MM/YYYY
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+    // DD-MM-YYYY → DD/MM/YYYY
+    if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return s.replace(/-/g, "/");
+    // YYYY-MM-DD → DD/MM/YYYY
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+    return s;
+  }
+  const dob = normaliseDob(data.aadhaarDob || req.body?.dateOfBirth);
+  if (!dob) {
+    return res.status(400).json({
+      error: "DOB_REQUIRED",
+      message:
+        "We don't have your date of birth on file. Please enter it (as on your Aadhaar) and try again.",
+    });
+  }
+
   try {
     const headers = await authHeaders();
     const { data: resp } = await axios.post(
@@ -150,7 +174,7 @@ router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
         "@entity": "in.co.sandbox.kyc.pan_verification.request",
         pan,
         name_as_per_pan: aadhaarName,
-        date_of_birth: data.aadhaarDob || "",
+        date_of_birth: dob,
         consent: "Y",
         reason: "Seller KYC for Any&All marketplace",
       },

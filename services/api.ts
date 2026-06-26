@@ -766,10 +766,10 @@ export async function saveStoreSetup(payload: {
   );
 }
 
-export async function verifyPan(payload: { pan: string }) {
+export async function verifyPan(payload: { pan: string; dateOfBirth?: string }) {
   return j<{
     verified: boolean;
-    error?: "INVALID_PAN" | "AADHAAR_FIRST" | "INVALID_OR_MISSING" | "NAME_MISMATCH";
+    error?: "INVALID_PAN" | "AADHAAR_FIRST" | "DOB_REQUIRED" | "INVALID_OR_MISSING" | "NAME_MISMATCH";
     message?: string;
     panName?: string;
     aadhaarName?: string;
