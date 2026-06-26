@@ -159,7 +159,11 @@ router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
   }
   const dob = normaliseDob(data.aadhaarDob || req.body?.dateOfBirth);
   if (!dob) {
-    return res.status(400).json({
+    // Return 200 with verified:false so the frontend can read the error
+    // code and show the DOB input. A 4xx status causes the fetch wrapper
+    // to throw, hiding the structured error from the caller.
+    return res.json({
+      verified: false,
       error: "DOB_REQUIRED",
       message:
         "We don't have your date of birth on file. Please enter it (as on your Aadhaar) and try again.",

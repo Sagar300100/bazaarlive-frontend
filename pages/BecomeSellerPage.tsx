@@ -201,6 +201,17 @@ const StoreStep: React.FC<{
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // If the parent's loaded state arrives AFTER this component already
+  // mounted (race between the async fetch and the user clicking Store in
+  // the stepper), pull the values in. useState only takes its argument on
+  // first mount, so without this the form would stay empty even though
+  // we have the data.
+  useEffect(() => {
+    if (initial.storeName && !storeName) setStoreName(initial.storeName);
+    if (initial.storeHandle && !storeHandle) setStoreHandle(initial.storeHandle);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial.storeName, initial.storeHandle]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
