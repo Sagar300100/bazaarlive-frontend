@@ -42,7 +42,8 @@ import {
 } from "firebase/auth";
 import { auth } from "./src/firebase";
 
-import { verifyEmail, resetPasswordAppwrite, completeDigiLocker } from "./services/api";
+import { verifyEmail, resetPasswordAppwrite, completeDigiLocker, getSellerOnboarding } from "./services/api";
+import BecomeSellerPage from "./pages/BecomeSellerPage";
 import LiveSessionService from "./services/LiveSessionService";
 
 /* ---------------- URL intent helpers (Firebase + legacy) ---------------- */
@@ -325,6 +326,30 @@ const App: React.FC = () => {
   const [emailVerified, setEmailVerified] = useState<boolean>(false);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [digilockerNotice, setDigilockerNotice] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  // null = not yet checked (treat as not onboarded for routing). After auth
+  // we fetch /seller-onboarding once and cache; refresh on completion.
+  const [sellerOnboardingComplete, setSellerOnboardingComplete] = useState<boolean | null>(null);
+
+  // Fetch seller onboarding status whenever auth flips to verified+logged-in.
+  // BecomeSellerPage gates the seller-hub route; we cache here so we don't
+  // hammer the endpoint on every render.
+  useEffect(() => {
+    if (!isLoggedIn || !emailVerified) {
+      setSellerOnboardingComplete(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const s = await getSellerOnboarding();
+        if (cancelled) return;
+        setSellerOnboardingComplete(!!s.completedAt);
+      } catch {
+        if (!cancelled) setSellerOnboardingComplete(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isLoggedIn, emailVerified]);
 
   // DigiLocker round-trip handler. After Meri Pehchaan redirects back to
   // anynall.com with ?digilocker=complete we read the session id we stashed
@@ -802,19 +827,29 @@ const App: React.FC = () => {
             onSignOut={handleLogout}
             onResent={resendVerification}
           >
-            <SellerHubPage
-              key={sellerHubKey}
-              onNavigate={navigate}
-              onOpenShow={handleOpenShow}
-              showToEdit={showToEdit}
-              scheduledShows={scheduledShows}
-              pastShows={pastShows as any}
-              onScheduleShow={handleScheduleShow}
-              onUpdateShow={handleUpdateShow}
-              onCancelShow={handleCancelShow}
-              initialPage={sellerHubInitialPage}
-              initialShowsTab={initialShowsTab}
-            />
+            {sellerOnboardingComplete === true ? (
+              <SellerHubPage
+                key={sellerHubKey}
+                onNavigate={navigate}
+                onOpenShow={handleOpenShow}
+                showToEdit={showToEdit}
+                scheduledShows={scheduledShows}
+                pastShows={pastShows as any}
+                onScheduleShow={handleScheduleShow}
+                onUpdateShow={handleUpdateShow}
+                onCancelShow={handleCancelShow}
+                initialPage={sellerHubInitialPage}
+                initialShowsTab={initialShowsTab}
+              />
+            ) : (
+              <BecomeSellerPage
+                onComplete={() => {
+                  setSellerOnboardingComplete(true);
+                  // Re-render this same route as the SellerHub once flagged.
+                }}
+                onCancel={() => navigate("home")}
+              />
+            )}
           </VerifyEmailGate>
         );
 

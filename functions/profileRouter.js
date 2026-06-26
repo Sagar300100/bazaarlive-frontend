@@ -172,6 +172,133 @@ router.put("/", authGuard, (req, res) => {
   res.json(profiles[req.user.uid]);
 });
 
+// Allowed seller categories. Keep tight — sellers can change later.
+const SELLER_CATEGORIES = new Set([
+  "sneakers", "apparel", "watches", "jewellery", "collectibles",
+  "electronics", "beauty", "home", "art", "books", "other",
+]);
+
+// GET /api/profile/seller-onboarding
+// Returns the seller's current onboarding progress so the wizard can pick
+// up where they left off if they close the tab mid-flow.
+router.get("/seller-onboarding", authGuard, async (req, res) => {
+  try {
+    const db = firebaseAdmin().firestore();
+    const doc = await db.doc(`users/${req.user.uid}`).get();
+    const data = doc.data() || {};
+    const so = data.sellerOnboarding || {};
+    return res.json({
+      storeSetupComplete: !!so.storeName && !!so.storeHandle,
+      aadhaarVerified: !!data.aadhaarVerified,
+      bankVerified: !!so.bankVerified,
+      completedAt: so.completedAt || null,
+      storeName: so.storeName || "",
+      storeHandle: so.storeHandle || "",
+      storeCategory: so.storeCategory || "",
+    });
+  } catch (err) {
+    console.error("[profile] seller-onboarding read failed", err?.message || err);
+    return res.status(500).json({ error: "READ_FAILED" });
+  }
+});
+
+// POST /api/profile/seller-onboarding/store  { storeName, storeHandle, storeCategory }
+// Saves step 1 of the wizard. storeHandle is unique across sellers and
+// claimed via the same usernames/ collection used for buyer handles.
+router.post("/seller-onboarding/store", authGuard, async (req, res) => {
+  const storeName = String(req.body?.storeName || "").trim();
+  const storeHandle = String(req.body?.storeHandle || "").toLowerCase().trim();
+  const storeCategory = String(req.body?.storeCategory || "").toLowerCase().trim();
+
+  if (storeName.length < 2 || storeName.length > 60) {
+    return res.status(400).json({ error: "INVALID_NAME", message: "Store name must be 2-60 chars." });
+  }
+  if (!USERNAME_RE.test(storeHandle)) {
+    return res.status(400).json({
+      error: "INVALID_HANDLE",
+      message: "Handle must be 3-20 chars, letters/digits/underscore, starting with a letter.",
+    });
+  }
+  if (RESERVED_USERNAMES.has(storeHandle)) {
+    return res.status(400).json({ error: "RESERVED", message: "That handle is reserved." });
+  }
+  if (!SELLER_CATEGORIES.has(storeCategory)) {
+    return res.status(400).json({ error: "INVALID_CATEGORY", message: "Pick a valid category." });
+  }
+
+  const admin = firebaseAdmin();
+  const db = admin.firestore();
+  const handleRef = db.doc(`usernames/${storeHandle}`);
+  const userRef = db.doc(`users/${req.user.uid}`);
+
+  try {
+    await db.runTransaction(async (tx) => {
+      const existing = await tx.get(handleRef);
+      if (existing.exists && existing.data()?.uid !== req.user.uid) {
+        const e = new Error("HANDLE_TAKEN");
+        e.code = "HANDLE_TAKEN";
+        throw e;
+      }
+      tx.set(handleRef, {
+        uid: req.user.uid,
+        kind: "seller",
+        claimedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      tx.set(
+        userRef,
+        {
+          "sellerOnboarding.storeName": storeName,
+          "sellerOnboarding.storeHandle": storeHandle,
+          "sellerOnboarding.storeCategory": storeCategory,
+          "sellerOnboarding.storeSetupAt": admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    });
+    return res.json({ ok: true, storeHandle });
+  } catch (err) {
+    if (err?.code === "HANDLE_TAKEN") {
+      return res.status(409).json({ error: "HANDLE_TAKEN", message: "That handle is already taken." });
+    }
+    console.error("[profile] store setup failed", err?.message || err);
+    return res.status(500).json({ error: "STORE_SETUP_FAILED" });
+  }
+});
+
+// POST /api/profile/seller-onboarding/complete
+// Final gate — only succeeds if all 3 prior steps are done. Marks the
+// seller as fully onboarded so the seller dashboard can let them in.
+router.post("/seller-onboarding/complete", authGuard, async (req, res) => {
+  const admin = firebaseAdmin();
+  const db = admin.firestore();
+  const userRef = db.doc(`users/${req.user.uid}`);
+  try {
+    const doc = await userRef.get();
+    const data = doc.data() || {};
+    const so = data.sellerOnboarding || {};
+    if (!so.storeName || !so.storeHandle) {
+      return res.status(400).json({ error: "STORE_MISSING", message: "Complete store setup first." });
+    }
+    if (!data.aadhaarVerified) {
+      return res.status(400).json({ error: "AADHAAR_MISSING", message: "Verify Aadhaar via DigiLocker first." });
+    }
+    if (!so.bankVerified) {
+      return res.status(400).json({ error: "BANK_MISSING", message: "Verify your bank account first." });
+    }
+    await userRef.set(
+      {
+        isSeller: true,
+        "sellerOnboarding.completedAt": admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[profile] seller-onboarding/complete failed", err?.message || err);
+    return res.status(500).json({ error: "COMPLETE_FAILED" });
+  }
+});
+
 // GET /api/referral -> returns code + share link, creates one if missing
 router.get("/referral", authGuard, (req, res) => {
   const profiles = readProfiles();

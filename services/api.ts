@@ -742,6 +742,56 @@ export async function verifyAadhaarOtp(payload: {
   }>("/api/aadhaar/verify-otp", { method: "POST", body: JSON.stringify(payload) }, /*needsAuth*/ true);
 }
 
+// ---------- Seller onboarding ----------
+export async function getSellerOnboarding() {
+  return j<{
+    storeSetupComplete: boolean;
+    aadhaarVerified: boolean;
+    bankVerified: boolean;
+    completedAt: string | null;
+    storeName: string;
+    storeHandle: string;
+    storeCategory: string;
+  }>("/api/profile/seller-onboarding", { method: "GET" }, /*needsAuth*/ true);
+}
+
+export async function saveStoreSetup(payload: {
+  storeName: string;
+  storeHandle: string;
+  storeCategory: string;
+}) {
+  return j<{ ok: boolean; storeHandle: string }>(
+    "/api/profile/seller-onboarding/store",
+    { method: "POST", body: JSON.stringify(payload) },
+    /*needsAuth*/ true
+  );
+}
+
+export async function completeSellerOnboarding() {
+  return j<{ ok: boolean }>(
+    "/api/profile/seller-onboarding/complete",
+    { method: "POST", body: JSON.stringify({}) },
+    /*needsAuth*/ true
+  );
+}
+
+// ---------- Bank account verification (penny drop) ----------
+export async function verifyBankAccount(payload: {
+  accountNumber: string;
+  ifsc: string;
+}) {
+  return j<{
+    verified: boolean;
+    error?: "INVALID_ACCOUNT" | "INVALID_IFSC" | "AADHAAR_FIRST" | "ACCOUNT_NOT_FOUND" | "NO_NAME_RETURNED" | "NAME_MISMATCH";
+    message?: string;
+    bankName?: string;
+    aadhaarName?: string;
+    maskedAccount?: string;
+    ifsc?: string;
+    utr?: string;
+  }>("/api/bank/verify", { method: "POST", body: JSON.stringify(payload) }, /*needsAuth*/ true);
+}
+
 // ---------- DigiLocker verification (preferred over OTP-OKYC) ----------
 // Init returns a Meri Pehchaan URL; we redirect the user there. On return
 // the app calls complete() with the session id we stashed.
