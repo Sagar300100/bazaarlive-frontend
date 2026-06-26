@@ -172,12 +172,6 @@ router.put("/", authGuard, (req, res) => {
   res.json(profiles[req.user.uid]);
 });
 
-// Allowed seller categories. Keep tight — sellers can change later.
-const SELLER_CATEGORIES = new Set([
-  "sneakers", "apparel", "watches", "jewellery", "collectibles",
-  "electronics", "beauty", "home", "art", "books", "other",
-]);
-
 // GET /api/profile/seller-onboarding
 // Returns the seller's current onboarding progress so the wizard can pick
 // up where they left off if they close the tab mid-flow.
@@ -190,11 +184,11 @@ router.get("/seller-onboarding", authGuard, async (req, res) => {
     return res.json({
       storeSetupComplete: !!so.storeName && !!so.storeHandle,
       aadhaarVerified: !!data.aadhaarVerified,
+      panVerified: !!so.panVerified,
       bankVerified: !!so.bankVerified,
       completedAt: so.completedAt || null,
       storeName: so.storeName || "",
       storeHandle: so.storeHandle || "",
-      storeCategory: so.storeCategory || "",
     });
   } catch (err) {
     console.error("[profile] seller-onboarding read failed", err?.message || err);
@@ -202,13 +196,12 @@ router.get("/seller-onboarding", authGuard, async (req, res) => {
   }
 });
 
-// POST /api/profile/seller-onboarding/store  { storeName, storeHandle, storeCategory }
+// POST /api/profile/seller-onboarding/store  { storeName, storeHandle }
 // Saves step 1 of the wizard. storeHandle is unique across sellers and
 // claimed via the same usernames/ collection used for buyer handles.
 router.post("/seller-onboarding/store", authGuard, async (req, res) => {
   const storeName = String(req.body?.storeName || "").trim();
   const storeHandle = String(req.body?.storeHandle || "").toLowerCase().trim();
-  const storeCategory = String(req.body?.storeCategory || "").toLowerCase().trim();
 
   if (storeName.length < 2 || storeName.length > 60) {
     return res.status(400).json({ error: "INVALID_NAME", message: "Store name must be 2-60 chars." });
@@ -221,9 +214,6 @@ router.post("/seller-onboarding/store", authGuard, async (req, res) => {
   }
   if (RESERVED_USERNAMES.has(storeHandle)) {
     return res.status(400).json({ error: "RESERVED", message: "That handle is reserved." });
-  }
-  if (!SELLER_CATEGORIES.has(storeCategory)) {
-    return res.status(400).json({ error: "INVALID_CATEGORY", message: "Pick a valid category." });
   }
 
   const admin = firebaseAdmin();
@@ -249,7 +239,6 @@ router.post("/seller-onboarding/store", authGuard, async (req, res) => {
         {
           "sellerOnboarding.storeName": storeName,
           "sellerOnboarding.storeHandle": storeHandle,
-          "sellerOnboarding.storeCategory": storeCategory,
           "sellerOnboarding.storeSetupAt": admin.firestore.FieldValue.serverTimestamp(),
         },
         { merge: true }
@@ -281,6 +270,9 @@ router.post("/seller-onboarding/complete", authGuard, async (req, res) => {
     }
     if (!data.aadhaarVerified) {
       return res.status(400).json({ error: "AADHAAR_MISSING", message: "Verify Aadhaar via DigiLocker first." });
+    }
+    if (!so.panVerified) {
+      return res.status(400).json({ error: "PAN_MISSING", message: "Verify your PAN first." });
     }
     if (!so.bankVerified) {
       return res.status(400).json({ error: "BANK_MISSING", message: "Verify your bank account first." });

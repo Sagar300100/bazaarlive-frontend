@@ -747,24 +747,34 @@ export async function getSellerOnboarding() {
   return j<{
     storeSetupComplete: boolean;
     aadhaarVerified: boolean;
+    panVerified: boolean;
     bankVerified: boolean;
     completedAt: string | null;
     storeName: string;
     storeHandle: string;
-    storeCategory: string;
   }>("/api/profile/seller-onboarding", { method: "GET" }, /*needsAuth*/ true);
 }
 
 export async function saveStoreSetup(payload: {
   storeName: string;
   storeHandle: string;
-  storeCategory: string;
 }) {
   return j<{ ok: boolean; storeHandle: string }>(
     "/api/profile/seller-onboarding/store",
     { method: "POST", body: JSON.stringify(payload) },
     /*needsAuth*/ true
   );
+}
+
+export async function verifyPan(payload: { pan: string }) {
+  return j<{
+    verified: boolean;
+    error?: "INVALID_PAN" | "AADHAAR_FIRST" | "INVALID_OR_MISSING" | "NAME_MISMATCH";
+    message?: string;
+    panName?: string;
+    aadhaarName?: string;
+    maskedPan?: string;
+  }>("/api/pan/verify", { method: "POST", body: JSON.stringify(payload) }, /*needsAuth*/ true);
 }
 
 export async function completeSellerOnboarding() {

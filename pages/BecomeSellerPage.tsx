@@ -4,6 +4,7 @@ import {
   getSellerOnboarding,
   saveStoreSetup,
   verifyBankAccount,
+  verifyPan,
   completeSellerOnboarding,
 } from "../services/api";
 import DigiLockerModal from "../components/modals/DigiLockerModal";
@@ -17,27 +18,14 @@ const NAVY = "#1B3A6B";
 const BLUE = "#2B6CB8";
 const CREAM = "#F8F5F0";
 
-type StepKey = "store" | "aadhaar" | "bank" | "welcome";
+type StepKey = "store" | "aadhaar" | "pan" | "bank" | "welcome";
 
 const STEPS: { key: StepKey; label: string; icon: React.ReactNode }[] = [
-  { key: "store",   label: "Store Setup",      icon: <Store size={18} /> },
-  { key: "aadhaar", label: "Aadhaar (KYC)",    icon: <ShieldCheck size={18} /> },
-  { key: "bank",    label: "Bank Account",     icon: <Landmark size={18} /> },
-  { key: "welcome", label: "Welcome",          icon: <Sparkles size={18} /> },
-];
-
-const CATEGORIES = [
-  { value: "sneakers",      label: "Sneakers" },
-  { value: "apparel",       label: "Apparel" },
-  { value: "watches",       label: "Watches" },
-  { value: "jewellery",     label: "Jewellery" },
-  { value: "collectibles",  label: "Collectibles" },
-  { value: "electronics",   label: "Electronics" },
-  { value: "beauty",        label: "Beauty" },
-  { value: "home",          label: "Home & Decor" },
-  { value: "art",           label: "Art" },
-  { value: "books",         label: "Books" },
-  { value: "other",         label: "Other" },
+  { key: "store",   label: "Store",         icon: <Store size={18} /> },
+  { key: "aadhaar", label: "Aadhaar",       icon: <ShieldCheck size={18} /> },
+  { key: "pan",     label: "PAN",           icon: <ShieldCheck size={18} /> },
+  { key: "bank",    label: "Bank",          icon: <Landmark size={18} /> },
+  { key: "welcome", label: "Welcome",       icon: <Sparkles size={18} /> },
 ];
 
 const BecomeSellerPage: React.FC<BecomeSellerPageProps> = ({ onComplete, onCancel }) => {
@@ -46,17 +34,17 @@ const BecomeSellerPage: React.FC<BecomeSellerPageProps> = ({ onComplete, onCance
   const [state, setState] = useState<{
     storeSetupComplete: boolean;
     aadhaarVerified: boolean;
+    panVerified: boolean;
     bankVerified: boolean;
     storeName: string;
     storeHandle: string;
-    storeCategory: string;
   }>({
     storeSetupComplete: false,
     aadhaarVerified: false,
+    panVerified: false,
     bankVerified: false,
     storeName: "",
     storeHandle: "",
-    storeCategory: "",
   });
 
   // Read current progress so a refreshed/returning seller resumes correctly.
@@ -69,14 +57,15 @@ const BecomeSellerPage: React.FC<BecomeSellerPageProps> = ({ onComplete, onCance
         setState({
           storeSetupComplete: data.storeSetupComplete,
           aadhaarVerified: data.aadhaarVerified,
+          panVerified: (data as any).panVerified ?? false,
           bankVerified: data.bankVerified,
           storeName: data.storeName,
           storeHandle: data.storeHandle,
-          storeCategory: data.storeCategory,
         });
         // Jump to the earliest incomplete step.
         if (!data.storeSetupComplete) setStep("store");
         else if (!data.aadhaarVerified) setStep("aadhaar");
+        else if (!((data as any).panVerified)) setStep("pan");
         else if (!data.bankVerified) setStep("bank");
         else setStep("welcome");
       } catch {
@@ -162,21 +151,27 @@ const BecomeSellerPage: React.FC<BecomeSellerPageProps> = ({ onComplete, onCance
             </div>
           ) : step === "store" ? (
             <StoreStep
-              initial={{
-                storeName: state.storeName,
-                storeHandle: state.storeHandle,
-                storeCategory: state.storeCategory,
-              }}
+              initial={{ storeName: state.storeName, storeHandle: state.storeHandle }}
               onSaved={(saved) => {
                 setState((s) => ({ ...s, ...saved, storeSetupComplete: true }));
-                advance(state.aadhaarVerified ? (state.bankVerified ? "welcome" : "bank") : "aadhaar");
+                advance(state.aadhaarVerified
+                  ? (state.panVerified ? (state.bankVerified ? "welcome" : "bank") : "pan")
+                  : "aadhaar");
               }}
               onCancel={onCancel}
             />
           ) : step === "aadhaar" ? (
             <AadhaarStep
               verified={state.aadhaarVerified}
-              onContinue={() => advance(state.bankVerified ? "welcome" : "bank")}
+              onContinue={() => advance(state.panVerified ? (state.bankVerified ? "welcome" : "bank") : "pan")}
+            />
+          ) : step === "pan" ? (
+            <PanStep
+              verified={state.panVerified}
+              onVerified={() => {
+                setState((s) => ({ ...s, panVerified: true }));
+                advance(state.bankVerified ? "welcome" : "bank");
+              }}
             />
           ) : step === "bank" ? (
             <BankStep
@@ -197,13 +192,12 @@ const BecomeSellerPage: React.FC<BecomeSellerPageProps> = ({ onComplete, onCance
 
 /* ── Step 1: Store Setup ── */
 const StoreStep: React.FC<{
-  initial: { storeName: string; storeHandle: string; storeCategory: string };
-  onSaved: (saved: { storeName: string; storeHandle: string; storeCategory: string }) => void;
+  initial: { storeName: string; storeHandle: string };
+  onSaved: (saved: { storeName: string; storeHandle: string }) => void;
   onCancel: () => void;
 }> = ({ initial, onSaved, onCancel }) => {
   const [storeName, setStoreName] = useState(initial.storeName);
   const [storeHandle, setStoreHandle] = useState(initial.storeHandle);
-  const [storeCategory, setStoreCategory] = useState(initial.storeCategory || "sneakers");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -213,8 +207,8 @@ const StoreStep: React.FC<{
     try {
       setBusy(true);
       const handle = storeHandle.toLowerCase().trim();
-      await saveStoreSetup({ storeName: storeName.trim(), storeHandle: handle, storeCategory });
-      onSaved({ storeName: storeName.trim(), storeHandle: handle, storeCategory });
+      await saveStoreSetup({ storeName: storeName.trim(), storeHandle: handle });
+      onSaved({ storeName: storeName.trim(), storeHandle: handle });
     } catch (err: any) {
       setError(err?.message || "Could not save store details.");
     } finally {
@@ -256,19 +250,6 @@ const StoreStep: React.FC<{
         </div>
       </Field>
 
-      <Field label="What do you sell?" hint="Pick the closest category. You can list cross-category later.">
-        <select
-          value={storeCategory}
-          onChange={(e) => setStoreCategory(e.target.value)}
-          className="w-full px-4 py-3 rounded-lg outline-none"
-          style={{ background: "#F8FAFC", color: NAVY, border: "1.5px solid #E2E8F0" }}
-        >
-          {CATEGORIES.map((c) => (
-            <option key={c.value} value={c.value}>{c.label}</option>
-          ))}
-        </select>
-      </Field>
-
       {error && <p className="text-sm" style={{ color: "#DC2626" }}>{error}</p>}
 
       <div className="flex gap-3 pt-2">
@@ -283,8 +264,8 @@ const StoreStep: React.FC<{
         <button
           type="submit"
           disabled={busy}
-          className="flex-1 py-3 rounded-lg font-bold text-white disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          style={{ background: busy ? "#94A3B8" : NAVY }}
+          className="flex-1 py-3 rounded-lg font-bold disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          style={{ background: busy ? "#94A3B8" : NAVY, color: "#FFFFFF" }}
         >
           {busy ? "Saving…" : (<>Continue <ArrowRight size={16} /></>)}
         </button>
@@ -325,8 +306,8 @@ const AadhaarStep: React.FC<{
           </p>
           <button
             onClick={() => setModalOpen(true)}
-            className="px-5 py-3 rounded-lg font-bold text-white"
-            style={{ background: NAVY }}
+            className="px-5 py-3 rounded-lg font-bold"
+            style={{ background: NAVY, color: "#FFFFFF" }}
           >
             Verify With DigiLocker
           </button>
@@ -337,8 +318,8 @@ const AadhaarStep: React.FC<{
         <button
           onClick={onContinue}
           disabled={!verified}
-          className="px-5 py-3 rounded-lg font-bold text-white disabled:cursor-not-allowed flex items-center gap-2"
-          style={{ background: !verified ? "#94A3B8" : NAVY }}
+          className="px-5 py-3 rounded-lg font-bold disabled:cursor-not-allowed flex items-center gap-2"
+          style={{ background: !verified ? "#94A3B8" : NAVY, color: "#FFFFFF" }}
         >
           Continue <ArrowRight size={16} />
         </button>
@@ -349,7 +330,92 @@ const AadhaarStep: React.FC<{
   );
 };
 
-/* ── Step 3: Bank Account ── */
+/* ── Step 3: PAN ── */
+const PanStep: React.FC<{ verified: boolean; onVerified: () => void }> = ({ verified, onVerified }) => {
+  const [pan, setPan] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null); setSuccess(null);
+    try {
+      setBusy(true);
+      const res = await verifyPan({ pan: pan.toUpperCase() });
+      if (res.verified) {
+        setSuccess(`✓ Verified. Name on PAN: ${res.panName}.`);
+        setTimeout(() => onVerified(), 1000);
+      } else if (res.error === "NAME_MISMATCH") {
+        setError(`PAN name "${res.panName}" doesn't match your Aadhaar name. The PAN must be in YOUR name.`);
+      } else {
+        setError(res.message || "Could not verify this PAN. Re-check the number.");
+      }
+    } catch (err: any) {
+      setError(err?.message || "Verification failed. Please retry.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (verified) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h2 className="text-xl font-bold mb-1" style={{ color: NAVY }}>PAN verified</h2>
+          <p className="text-sm" style={{ color: "#4A7AB5" }}>Tax compliance for payouts is set.</p>
+        </div>
+        <div className="rounded-lg p-5 flex items-center gap-3" style={{ background: "rgba(34,197,94,0.08)", border: "1.5px solid rgba(34,197,94,0.25)" }}>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "rgba(34,197,94,0.15)", color: "#16A34A" }}>
+            <Check size={20} />
+          </div>
+          <p className="font-semibold" style={{ color: "#14532D" }}>PAN on file</p>
+        </div>
+        <div className="flex justify-end pt-2">
+          <button onClick={onVerified} className="px-5 py-3 rounded-lg font-bold flex items-center gap-2" style={{ background: NAVY, color: "#FFFFFF" }}>
+            Continue <ArrowRight size={16} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-5">
+      <div>
+        <h2 className="text-xl font-bold mb-1" style={{ color: NAVY }}>Add your PAN</h2>
+        <p className="text-sm" style={{ color: "#4A7AB5" }}>
+          Required by Income Tax Department for sellers. Your PAN name must match your Aadhaar name.
+        </p>
+      </div>
+
+      <Field label="PAN number" hint="10 chars. Format: 5 letters + 4 digits + 1 letter (e.g. ABCDE1234F).">
+        <input
+          value={pan}
+          onChange={(e) => setPan(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+          maxLength={10}
+          required
+          className="w-full px-4 py-3 rounded-lg outline-none font-mono uppercase"
+          style={{ background: "#F8FAFC", color: NAVY, border: "1.5px solid #E2E8F0" }}
+        />
+      </Field>
+
+      {error && <p className="text-sm" style={{ color: "#DC2626" }}>{error}</p>}
+      {success && <p className="text-sm" style={{ color: "#16A34A" }}>{success}</p>}
+
+      <button
+        type="submit"
+        disabled={busy}
+        className="w-full py-3 rounded-lg font-bold disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        style={{ background: busy ? "#94A3B8" : NAVY, color: "#FFFFFF" }}
+      >
+        {busy ? "Verifying with NSDL…" : (<>Verify PAN <ArrowRight size={16} /></>)}
+      </button>
+    </form>
+  );
+};
+
+/* ── Step 4: Bank Account ── */
 const BankStep: React.FC<{ verified: boolean; onVerified: () => void }> = ({ verified, onVerified }) => {
   const [accountNumber, setAccountNumber] = useState("");
   const [confirmAccount, setConfirmAccount] = useState("");
@@ -404,8 +470,8 @@ const BankStep: React.FC<{ verified: boolean; onVerified: () => void }> = ({ ver
         <div className="flex justify-end pt-2">
           <button
             onClick={onVerified}
-            className="px-5 py-3 rounded-lg font-bold text-white flex items-center gap-2"
-            style={{ background: NAVY }}
+            className="px-5 py-3 rounded-lg font-bold flex items-center gap-2"
+            style={{ background: NAVY, color: "#FFFFFF" }}
           >
             Continue <ArrowRight size={16} />
           </button>
@@ -516,8 +582,8 @@ const WelcomeStep: React.FC<{ onComplete: () => void; storeName: string }> = ({ 
       <button
         onClick={finish}
         disabled={busy}
-        className="px-8 py-3 rounded-lg font-bold text-white disabled:cursor-not-allowed inline-flex items-center gap-2"
-        style={{ background: busy ? "#94A3B8" : NAVY }}
+        className="px-8 py-3 rounded-lg font-bold disabled:cursor-not-allowed inline-flex items-center gap-2"
+        style={{ background: busy ? "#94A3B8" : NAVY, color: "#FFFFFF" }}
       >
         {busy ? "Finishing…" : (<>Go to Seller Hub <ArrowRight size={16} /></>)}
       </button>

@@ -15,6 +15,7 @@ import analyticsRouter from "./analyticsRouter.js";
 import profileRouter from "./profileRouter.js";
 import digilockerRouter from "./digilockerRouter.js";
 import bankRouter from "./bankRouter.js";
+import panRouter from "./panRouter.js";
 
 // Secrets must be declared so Firebase injects them into the runtime env.
 const sandboxApiKey = defineSecret("SANDBOX_API_KEY");
@@ -55,6 +56,7 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/aadhaar", aadhaarRouter);
 app.use("/api/digilocker", digilockerRouter);
 app.use("/api/bank", bankRouter);
+app.use("/api/pan", panRouter);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/profile", profileRouter);
 

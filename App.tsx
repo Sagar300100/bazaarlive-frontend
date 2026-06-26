@@ -355,6 +355,11 @@ const App: React.FC = () => {
   // anynall.com with ?digilocker=complete we read the session id we stashed
   // before leaving, ask the backend to finalise the verification, and show
   // a result banner.
+  //
+  // Critical: Firebase Auth restores the user asynchronously after page
+  // load. If we fire the API call before auth has hydrated, currentUser is
+  // null, no Bearer token gets sent, backend returns 401. We must wait for
+  // authStateReady() before calling.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("digilocker") !== "complete") return;
@@ -369,6 +374,13 @@ const App: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
+        // Wait for Firebase to finish restoring auth from localStorage.
+        // Without this, the backend rejects with AUTH_REQUIRED because the
+        // ID-token header is empty during the first paint after redirect.
+        await auth.authStateReady();
+        if (!auth.currentUser) {
+          throw new Error("You need to be signed in to finish DigiLocker verification. Please log in and retry.");
+        }
         const res = await completeDigiLocker(sessionId);
         if (cancelled) return;
         try {
