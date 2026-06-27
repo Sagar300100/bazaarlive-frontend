@@ -44,6 +44,11 @@ import { auth } from "./src/firebase";
 
 import { verifyEmail, resetPasswordAppwrite, completeDigiLocker, getSellerOnboarding } from "./services/api";
 import BecomeSellerPage from "./pages/BecomeSellerPage";
+import LegalPage, { LegalPageKey } from "./pages/LegalPage";
+
+// Keys for the 6 legal pages. Razorpay verifies these URLs during onboarding,
+// so they must stay live at /terms, /privacy, /refund, /contact, /about, /pricing.
+const LEGAL_PAGE_KEYS: LegalPageKey[] = ["terms", "privacy", "refund", "contact", "about", "pricing"];
 import LiveSessionService from "./services/LiveSessionService";
 
 /* ---------------- URL intent helpers (Firebase + legacy) ---------------- */
@@ -294,7 +299,14 @@ const App: React.FC = () => {
   // Lenis removed — global RAF every frame caused jank on non-landing pages
   // (Account Settings, Buyer Home etc.). Native scroll is fast on all devices.
 
-  const [currentPage, setCurrentPage] = useState("home");
+  // Initial page is read from the URL path. Razorpay's verification crawler
+  // hits /terms, /privacy etc. directly, so a fresh load on those URLs must
+  // render the right page (not bounce to home).
+  const [currentPage, setCurrentPage] = useState(() => {
+    const path = window.location.pathname.replace(/^\/+/, "").split("/")[0];
+    if ((LEGAL_PAGE_KEYS as string[]).includes(path)) return path;
+    return "home";
+  });
   const navStack = React.useRef<string[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -551,6 +563,19 @@ const App: React.FC = () => {
       navStack.current.push(currentPage);
     }
     setCurrentPage(page);
+    // Sync URL for legal pages so a refresh / external share works. For
+    // every other page we keep the root URL — the SPA's state-driven
+    // navigation doesn't need it and it'd confuse the existing intent
+    // handling (verify-email, reset-password etc.).
+    if ((LEGAL_PAGE_KEYS as string[]).includes(page)) {
+      const target = `/${page}`;
+      if (window.location.pathname !== target) {
+        window.history.pushState({}, "", target);
+      }
+    } else if ((LEGAL_PAGE_KEYS as string[]).includes(window.location.pathname.replace(/^\/+/, ""))) {
+      // Navigating away from a legal page — restore root.
+      window.history.pushState({}, "", "/");
+    }
     window.scrollTo(0, 0);
   };
 
@@ -934,6 +959,12 @@ const App: React.FC = () => {
         );
 
       default:
+        // Legal pages: terms, privacy, refund, contact, about, pricing.
+        // Routed here so a missing case never silently 404s; LegalPage is
+        // the single component that owns all six.
+        if ((LEGAL_PAGE_KEYS as string[]).includes(currentPage)) {
+          return <LegalPage page={currentPage as LegalPageKey} onNavigate={navigate} />;
+        }
         return null;
     }
   };

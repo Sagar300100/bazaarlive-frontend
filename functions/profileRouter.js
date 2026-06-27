@@ -172,6 +172,18 @@ router.put("/", authGuard, (req, res) => {
   res.json(profiles[req.user.uid]);
 });
 
+// Defensive read: prefer nested `sellerOnboarding.xxx` (correct), fall back
+// to flat `"sellerOnboarding.xxx"` literal-key fields that earlier buggy
+// writes produced. This lets users who completed steps before the fix
+// keep their progress.
+function readSo(data, field) {
+  const so = data?.sellerOnboarding || {};
+  if (so[field] !== undefined && so[field] !== null && so[field] !== "") return so[field];
+  const flat = data?.[`sellerOnboarding.${field}`];
+  if (flat !== undefined && flat !== null && flat !== "") return flat;
+  return undefined;
+}
+
 // GET /api/profile/seller-onboarding
 // Returns the seller's current onboarding progress so the wizard can pick
 // up where they left off if they close the tab mid-flow.
@@ -180,15 +192,16 @@ router.get("/seller-onboarding", authGuard, async (req, res) => {
     const db = firebaseAdmin().firestore();
     const doc = await db.doc(`users/${req.user.uid}`).get();
     const data = doc.data() || {};
-    const so = data.sellerOnboarding || {};
+    const storeName = readSo(data, "storeName") || "";
+    const storeHandle = readSo(data, "storeHandle") || "";
     return res.json({
-      storeSetupComplete: !!so.storeName && !!so.storeHandle,
+      storeSetupComplete: !!storeName && !!storeHandle,
       aadhaarVerified: !!data.aadhaarVerified,
-      panVerified: !!so.panVerified,
-      bankVerified: !!so.bankVerified,
-      completedAt: so.completedAt || null,
-      storeName: so.storeName || "",
-      storeHandle: so.storeHandle || "",
+      panVerified: !!readSo(data, "panVerified"),
+      bankVerified: !!readSo(data, "bankVerified"),
+      completedAt: readSo(data, "completedAt") || null,
+      storeName,
+      storeHandle,
     });
   } catch (err) {
     console.error("[profile] seller-onboarding read failed", err?.message || err);
@@ -234,12 +247,18 @@ router.post("/seller-onboarding/store", authGuard, async (req, res) => {
         kind: "seller",
         claimedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+      // Use a proper nested object — set({merge:true}) stores dotted keys
+      // as literal field names with a dot in them, which then can't be read
+      // back as data.sellerOnboarding.storeName. With nested objects,
+      // merge:true does a deep merge so existing sub-fields are preserved.
       tx.set(
         userRef,
         {
-          "sellerOnboarding.storeName": storeName,
-          "sellerOnboarding.storeHandle": storeHandle,
-          "sellerOnboarding.storeSetupAt": admin.firestore.FieldValue.serverTimestamp(),
+          sellerOnboarding: {
+            storeName,
+            storeHandle,
+            storeSetupAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
         },
         { merge: true }
       );
@@ -264,23 +283,24 @@ router.post("/seller-onboarding/complete", authGuard, async (req, res) => {
   try {
     const doc = await userRef.get();
     const data = doc.data() || {};
-    const so = data.sellerOnboarding || {};
-    if (!so.storeName || !so.storeHandle) {
+    if (!readSo(data, "storeName") || !readSo(data, "storeHandle")) {
       return res.status(400).json({ error: "STORE_MISSING", message: "Complete store setup first." });
     }
     if (!data.aadhaarVerified) {
       return res.status(400).json({ error: "AADHAAR_MISSING", message: "Verify Aadhaar via DigiLocker first." });
     }
-    if (!so.panVerified) {
+    if (!readSo(data, "panVerified")) {
       return res.status(400).json({ error: "PAN_MISSING", message: "Verify your PAN first." });
     }
-    if (!so.bankVerified) {
+    if (!readSo(data, "bankVerified")) {
       return res.status(400).json({ error: "BANK_MISSING", message: "Verify your bank account first." });
     }
     await userRef.set(
       {
         isSeller: true,
-        "sellerOnboarding.completedAt": admin.firestore.FieldValue.serverTimestamp(),
+        sellerOnboarding: {
+          completedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
       },
       { merge: true }
     );

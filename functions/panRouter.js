@@ -185,11 +185,26 @@ router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
       { headers, timeout: 12000 }
     );
 
-    const inner = resp?.data || {};
-    const valid = inner?.status === "VALID" || inner?.valid === true;
-    const panName = inner?.name || inner?.full_name || inner?.registered_name || "";
+    // Log the raw response once so we can pin field names if Sandbox ever
+    // changes them.
+    try {
+      console.log(
+        "[pan] response keys:",
+        JSON.stringify(Object.keys(resp?.data || {})),
+        "preview:",
+        JSON.stringify(resp?.data).slice(0, 800)
+      );
+    } catch {}
 
-    if (!valid || !panName) {
+    const inner = resp?.data || {};
+    // Sandbox returns status:"valid" (lowercase). They handle the
+    // name/DOB matching themselves and return *_match booleans — we don't
+    // need to run namesMatch() here.
+    const isValid = String(inner?.status || inner?.pan_status || "").toLowerCase() === "valid";
+    const nameMatches = inner?.name_as_per_pan_match === true;
+    const dobMatches = inner?.date_of_birth_match === true;
+
+    if (!isValid) {
       return res.json({
         verified: false,
         error: "INVALID_OR_MISSING",
@@ -197,16 +212,29 @@ router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
       });
     }
 
-    if (!namesMatch(aadhaarName, panName)) {
+    if (!nameMatches) {
       return res.json({
         verified: false,
         error: "NAME_MISMATCH",
         message:
-          `PAN holder name "${panName}" doesn't match your Aadhaar name "${aadhaarName}". The PAN must be in YOUR name.`,
-        panName,
+          `The name on this PAN doesn't match your account name "${aadhaarName}". The PAN must be registered in YOUR name.`,
         aadhaarName,
       });
     }
+
+    if (!dobMatches) {
+      return res.json({
+        verified: false,
+        error: "DOB_MISMATCH",
+        message:
+          "The date of birth on this PAN doesn't match what you entered. Please check the DOB you provided.",
+      });
+    }
+
+    // Sandbox's PAN endpoint doesn't return the actual name on the card —
+    // it just confirms whether what we sent matches. Use the Aadhaar name
+    // since we know it now matches the PAN.
+    const panName = aadhaarName;
 
     try {
       await admin
@@ -222,8 +250,14 @@ router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
               verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
               verifiedVia: "sandbox",
             },
-            "sellerOnboarding.panVerified": true,
-            "sellerOnboarding.panVerifiedAt": admin.firestore.FieldValue.serverTimestamp(),
+            // Nested object — Admin SDK turns dotted keys into LITERAL field
+            // names when used with set+merge, so dot-paths look like they
+            // saved but get('sellerOnboarding.panVerified') reads back as
+            // undefined. Nested object + merge:true does a proper deep merge.
+            sellerOnboarding: {
+              panVerified: true,
+              panVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
           },
           { merge: true }
         );

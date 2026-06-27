@@ -639,7 +639,7 @@ const BigCTA: React.FC<{ onPrimary: () => void; onSecondary: () => void }> = ({ 
 /* ══════════════════════════════════════════════
    FOOTER
 ══════════════════════════════════════════════ */
-const Footer: React.FC = () => (
+const Footer: React.FC<{ onNavigate: (page: string) => void }> = ({ onNavigate }) => (
   <footer style={{ background: T.navyDk, color: "white", padding: "60px 0 30px" }}>
     <div className="lp-container">
       <div className="ft-grid">
@@ -648,26 +648,40 @@ const Footer: React.FC = () => (
             <div style={{ width: 38, height: 38, borderRadius: 10, background: `linear-gradient(135deg, ${T.blueLt}, ${T.blue})`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 18, fontFamily: "Outfit, sans-serif" }}>A</div>
             <strong style={{ fontSize: 18, fontFamily: "Outfit, sans-serif" }}>Any &amp; All</strong>
           </div>
-          <p style={{ opacity: 0.55, fontSize: 13, lineHeight: 1.6, maxWidth: 260 }}>India's live commerce marketplace. Made in Bengaluru.</p>
+          <p style={{ opacity: 0.55, fontSize: 13, lineHeight: 1.6, maxWidth: 260 }}>India's live commerce marketplace. Made in Meerut.</p>
         </div>
-        <FtCol title="Company" links={["About", "Careers", "Press"]} />
-        <FtCol title="Sellers" links={["Become a Seller", "Seller Hub", "Pricing"]} />
-        <FtCol title="Help"    links={["How Bidding Works", "Buyer Protection", "Contact"]} />
-        <FtCol title="Legal"   links={["Terms", "Privacy", "Refunds"]} />
+        <FtCol title="Company" onNavigate={onNavigate} links={[["About", "about"], ["Contact", "contact"]]} />
+        <FtCol title="Sellers" onNavigate={onNavigate} links={[["Become a Seller", "become-seller"], ["Pricing", "pricing"]]} />
+        <FtCol title="Legal"   onNavigate={onNavigate} links={[["Terms", "terms"], ["Privacy", "privacy"], ["Refund Policy", "refund"]]} />
       </div>
       <div className="ft-bottom">
-        <span style={{ opacity: 0.45, fontSize: 12 }}>© {new Date().getFullYear()} Any &amp; All Technologies Pvt. Ltd.</span>
+        <span style={{ opacity: 0.45, fontSize: 12 }}>© {new Date().getFullYear()} Any&amp;All Private Limited · CIN U62090UW2026PTC253793</span>
         <span style={{ opacity: 0.45, fontSize: 12 }}>Made in India</span>
       </div>
     </div>
   </footer>
 );
 
-const FtCol: React.FC<{ title: string; links: string[] }> = ({ title, links }) => (
+// Each link is a [label, pageKey] tuple so the visible text and the route can
+// diverge (e.g. "Refund Policy" → "refund"). Clicking calls onNavigate which
+// is wired through to App.tsx's router.
+const FtCol: React.FC<{ title: string; links: [string, string][]; onNavigate: (page: string) => void }> = ({ title, links, onNavigate }) => (
   <div>
     <div style={{ fontSize: 11, letterSpacing: 1.5, fontWeight: 700, marginBottom: 14, opacity: 0.65 }}>{title.toUpperCase()}</div>
     <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 9 }}>
-      {links.map(l => <li key={l}><a href="#" style={{ color: "white", textDecoration: "none", fontSize: 14, opacity: 0.75 }}>{l}</a></li>)}
+      {links.map(([label, page]) => (
+        <li key={page}>
+          <a
+            href={`/${page}`}
+            onClick={(e) => { e.preventDefault(); onNavigate(page); }}
+            style={{ color: "white", textDecoration: "none", fontSize: 14, opacity: 0.75, cursor: "pointer" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.opacity = "1"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.opacity = "0.75"; }}
+          >
+            {label}
+          </a>
+        </li>
+      ))}
     </ul>
   </div>
 );
@@ -995,7 +1009,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <HowItWorks />
       <ForSellers onSell={onSell} />
       <BigCTA onPrimary={onWatchLive} onSecondary={onSell} />
-      <Footer />
+      <Footer onNavigate={onNavigate} />
     </div>
   );
 };

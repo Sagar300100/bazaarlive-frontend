@@ -174,10 +174,29 @@ router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
       }
     );
 
+    // Log full response so we can see whether Sandbox actually moved ₹1
+    // (presence of utr + amount_deposited) or just did a name lookup.
+    try {
+      console.log(
+        "[bank] verify response keys:",
+        JSON.stringify(Object.keys(resp?.data || {})),
+        "preview:",
+        JSON.stringify(resp?.data).slice(0, 800)
+      );
+    } catch {}
+
     const inner = resp?.data || {};
     const accountExists = inner.account_exists === true || inner.account_exists === "true";
     const bankName = inner.name_at_bank || inner.beneficiary_name || "";
     const utr = inner.utr || inner.reference_id || "";
+    const amountDeposited = inner.amount_deposited || inner.amount || 0;
+
+    console.log("[bank] result", {
+      accountExists,
+      hasBankName: !!bankName,
+      utrPresent: !!utr,
+      amountDeposited,
+    });
 
     if (!accountExists) {
       return res.json({
@@ -224,8 +243,12 @@ router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
               verifiedVia: "sandbox_penny_drop",
               lastUtr: utr,
             },
-            "sellerOnboarding.bankVerified": true,
-            "sellerOnboarding.bankVerifiedAt": admin.firestore.FieldValue.serverTimestamp(),
+            // Nested object — see comment in panRouter for why dotted keys
+            // with set+merge don't behave as field paths.
+            sellerOnboarding: {
+              bankVerified: true,
+              bankVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
           },
           { merge: true }
         );

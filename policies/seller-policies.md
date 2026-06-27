@@ -33,18 +33,21 @@ Sellers must complete KYC before going live.
 
 Account name and Aadhaar name MUST match. Sellers cannot bypass this.
 
-## 4. Fees — TO BE FINALISED
-
-**[FILL IN BEFORE LAUNCH]**
+## 4. Fees
 
 | Item | Rate |
 |---|---|
-| Platform fee on each sale | **TBD %** (suggestion: 8-10%) |
-| Razorpay gateway charge | 2% + GST (pass-through) |
-| Listing fee | **TBD** (suggestion: free for first 100 sellers) |
-| Show hosting fee | **TBD** (suggestion: free) |
+| Platform fee on each sale | **8%** of final sale price |
+| Razorpay gateway charge | 2% + GST (pass-through to seller) |
+| Listing fee | **Free** for first 100 sellers; ₹0 thereafter |
+| Show hosting fee | **Free** |
 | Monthly subscription | **None** |
 | Withdrawal fee | **None** (Razorpay handles payout) |
+
+Example: a seller sells an item for ₹1,000.
+- Platform fee: ₹80 (8%)
+- Razorpay gateway: ₹23.60 (2% + 18% GST on the ₹20)
+- Seller receives: ₹896.40 (89.6% of sale)
 
 ## 5. Allowed Products
 
