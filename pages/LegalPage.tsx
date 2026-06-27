@@ -583,68 +583,161 @@ const LegalPage: React.FC<Props> = ({ page, onNavigate }) => {
   ];
 
   return (
-    <div className="min-h-screen" style={{ background: `linear-gradient(180deg, ${CREAM} 0%, #FFFFFF 100%)` }}>
+    <div className="lp-legal-root">
       <style>{`
-        .legal-prose h2 { color: ${NAVY}; font-size: 1.25rem; font-weight: 700; margin: 1.75rem 0 0.5rem; }
-        .legal-prose p { color: #334155; line-height: 1.7; margin: 0.5rem 0; }
-        .legal-prose ul, .legal-prose ol { color: #334155; line-height: 1.7; padding-left: 1.25rem; margin: 0.5rem 0; }
-        .legal-prose li { margin: 0.25rem 0; }
-        .legal-prose a { color: ${BLUE}; font-weight: 600; text-decoration: underline; }
-        .legal-prose strong { color: ${NAVY}; }
-        .legal-table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.95rem; }
-        .legal-table th, .legal-table td { border: 1px solid rgba(43,108,184,0.18); padding: 0.6rem 0.75rem; text-align: left; }
-        .legal-table th { background: rgba(43,108,184,0.08); color: ${NAVY}; }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800;900&family=Rubik:wght@400;500;600;700&display=swap');
+
+        .lp-legal-root {
+          min-height: 100vh;
+          background: linear-gradient(180deg, ${CREAM} 0%, #FFFFFF 100%);
+          font-family: 'Rubik', system-ui, sans-serif;
+        }
+
+        /* ── Hero strip — landing-style: deep navy, soft glow, big display font ── */
+        .lp-legal-hero {
+          position: relative;
+          padding: 96px 24px 80px;
+          background:
+            radial-gradient(60% 80% at 20% 0%, rgba(43,108,184,0.35) 0%, transparent 60%),
+            radial-gradient(50% 70% at 90% 30%, rgba(123,184,255,0.25) 0%, transparent 60%),
+            linear-gradient(180deg, ${NAVY} 0%, #0F2A52 100%);
+          color: white;
+          overflow: hidden;
+        }
+        .lp-legal-hero::after {
+          content: "";
+          position: absolute; inset: 0;
+          background-image:
+            linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px);
+          background-size: 56px 56px;
+          mask-image: radial-gradient(70% 70% at 50% 30%, black 0%, transparent 80%);
+          pointer-events: none;
+        }
+        .lp-legal-hero-inner { max-width: 760px; margin: 0 auto; position: relative; z-index: 1; }
+        .lp-legal-eyebrow {
+          display: inline-flex; align-items: center; gap: 8px;
+          font-family: 'Outfit', sans-serif;
+          font-size: 12px; font-weight: 700;
+          letter-spacing: 2px; text-transform: uppercase;
+          padding: 6px 14px; border-radius: 999px;
+          background: rgba(123,184,255,0.16);
+          color: #BFD7FF;
+          margin-bottom: 18px;
+        }
+        .lp-legal-eyebrow::before {
+          content: ""; width: 6px; height: 6px; border-radius: 999px; background: #7BB8FF;
+          box-shadow: 0 0 12px #7BB8FF;
+        }
+        .lp-legal-title {
+          font-family: 'Outfit', sans-serif;
+          font-size: clamp(36px, 6vw, 60px);
+          font-weight: 800;
+          line-height: 1.05;
+          margin: 0 0 18px;
+          letter-spacing: -0.02em;
+        }
+        .lp-legal-title-accent { background: linear-gradient(135deg, #7BB8FF, #FFFFFF); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .lp-legal-meta { color: rgba(255,255,255,0.6); font-size: 14px; }
+
+        /* ── Cross-link chips inside hero ── */
+        .lp-legal-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 28px; }
+        .lp-legal-chip {
+          font-family: 'Rubik', sans-serif;
+          font-size: 13px; font-weight: 600;
+          padding: 8px 14px; border-radius: 999px;
+          color: rgba(255,255,255,0.78);
+          background: rgba(255,255,255,0.06);
+          border: 1.5px solid rgba(255,255,255,0.14);
+          cursor: pointer;
+          transition: all .18s ease;
+        }
+        .lp-legal-chip:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.28); color: white; }
+        .lp-legal-chip[data-active="true"] { background: white; color: ${NAVY}; border-color: white; }
+
+        /* ── Content card sits over the seam between hero and cream ── */
+        .lp-legal-content-wrap { max-width: 820px; margin: -56px auto 80px; padding: 0 24px; position: relative; z-index: 2; }
+        .lp-legal-card {
+          background: white;
+          border-radius: 24px;
+          padding: 56px clamp(28px, 6vw, 72px);
+          box-shadow: 0 30px 80px rgba(15,42,82,0.18), 0 1px 0 rgba(255,255,255,0.6) inset;
+          border: 1.5px solid rgba(43,108,184,0.10);
+        }
+
+        /* ── Prose: typographic rhythm matching Rubik/Outfit pairing on landing ── */
+        .legal-prose h2 {
+          font-family: 'Outfit', sans-serif;
+          color: ${NAVY};
+          font-size: 1.35rem;
+          font-weight: 700;
+          margin: 2rem 0 0.6rem;
+          letter-spacing: -0.01em;
+          position: relative;
+          padding-left: 14px;
+        }
+        .legal-prose h2::before {
+          content: ""; position: absolute; left: 0; top: 0.35rem; bottom: 0.35rem;
+          width: 3px; border-radius: 3px;
+          background: linear-gradient(180deg, #7BB8FF, ${BLUE});
+        }
+        .legal-prose h2:first-of-type { margin-top: 0; }
+        .legal-prose p { color: #334155; line-height: 1.78; margin: 0.6rem 0; font-size: 15.5px; }
+        .legal-prose ul, .legal-prose ol { color: #334155; line-height: 1.78; padding-left: 1.25rem; margin: 0.6rem 0; font-size: 15.5px; }
+        .legal-prose li { margin: 0.35rem 0; }
+        .legal-prose li::marker { color: ${BLUE}; }
+        .legal-prose a { color: ${BLUE}; font-weight: 600; text-decoration: none; border-bottom: 1.5px solid rgba(43,108,184,0.35); transition: border-color .15s ease; }
+        .legal-prose a:hover { border-bottom-color: ${BLUE}; }
+        .legal-prose strong { color: ${NAVY}; font-weight: 700; }
+        .legal-prose em { color: #64748B; font-style: normal; font-size: 13px; }
+
+        .legal-table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 14.5px; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 0 rgba(43,108,184,0.10) inset; }
+        .legal-table th, .legal-table td { border-bottom: 1px solid rgba(43,108,184,0.12); padding: 0.75rem 0.9rem; text-align: left; }
+        .legal-table tr:last-child td { border-bottom: 0; }
+        .legal-table th { background: linear-gradient(180deg, rgba(43,108,184,0.10), rgba(43,108,184,0.06)); color: ${NAVY}; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+        @media (max-width: 640px) {
+          .lp-legal-hero { padding: 64px 20px 64px; }
+          .lp-legal-content-wrap { margin-top: -40px; padding: 0 16px; }
+          .lp-legal-card { padding: 36px 22px; border-radius: 18px; }
+        }
       `}</style>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12">
-        <button
-          onClick={() => onNavigate("home")}
-          className="text-sm font-semibold mb-6 inline-flex items-center gap-1"
-          style={{ color: BLUE }}
-        >
-          ← Back to {TRADE_NAME}
-        </button>
-
-        <div className="mb-8">
-          <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: BLUE }}>
-            {content.eyebrow}
-          </p>
-          <h1 className="text-3xl sm:text-4xl font-bold" style={{ color: NAVY }}>
-            {content.title}
+      {/* ── Hero ── */}
+      <section className="lp-legal-hero">
+        <div className="lp-legal-hero-inner">
+          <span className="lp-legal-eyebrow">{content.eyebrow}</span>
+          <h1 className="lp-legal-title">
+            {content.title.split(" ").length > 1 ? (
+              <>
+                {content.title.split(" ").slice(0, -1).join(" ")} <span className="lp-legal-title-accent">{content.title.split(" ").slice(-1)[0]}</span>
+              </>
+            ) : (
+              <span className="lp-legal-title-accent">{content.title}</span>
+            )}
           </h1>
-        </div>
+          <p className="lp-legal-meta">Last reviewed 26 June 2026 · Any &amp; All operates under {COMPANY_LEGAL_NAME}.</p>
 
-        <div className="rounded-2xl p-6 sm:p-10 legal-prose" style={{
-          background: "#FFFFFF",
-          border: "1.5px solid rgba(43,108,184,0.14)",
-          boxShadow: "0 2px 12px rgba(43,108,184,0.06)",
-        }}>
-          {content.body}
-        </div>
-
-        {/* Cross-links */}
-        <div className="mt-8 rounded-2xl p-6" style={{ background: "rgba(43,108,184,0.05)", border: "1.5px solid rgba(43,108,184,0.12)" }}>
-          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: BLUE }}>More legal</p>
-          <div className="flex flex-wrap gap-2">
-            {otherPages.filter((p) => p.key !== page).map((p) => (
+          <div className="lp-legal-chips">
+            {otherPages.map((p) => (
               <button
                 key={p.key}
                 onClick={() => onNavigate(p.key)}
-                className="text-sm font-semibold rounded-lg px-3 py-1.5 transition-colors"
-                style={{ background: "#FFFFFF", color: NAVY, border: "1.5px solid rgba(43,108,184,0.18)" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(43,108,184,0.08)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#FFFFFF"; }}
+                className="lp-legal-chip"
+                data-active={p.key === page}
               >
                 {p.label}
               </button>
             ))}
           </div>
         </div>
+      </section>
 
-        <p className="mt-6 text-xs text-center" style={{ color: "#94A3B8" }}>
-          © {LAUNCH_YEAR} {COMPANY_LEGAL_NAME}. CIN {CIN}.
-        </p>
+      {/* ── Content ── */}
+      <div className="lp-legal-content-wrap">
+        <article className="lp-legal-card legal-prose">{content.body}</article>
       </div>
+
     </div>
   );
 };

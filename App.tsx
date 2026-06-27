@@ -307,6 +307,22 @@ const App: React.FC = () => {
     if ((LEGAL_PAGE_KEYS as string[]).includes(path)) return path;
     return "home";
   });
+
+  // Browser back/forward (popstate) must resync currentPage from the URL.
+  // Without this, history.pushState in navigate() changes the URL but the
+  // rendered page doesn't follow when the user hits the browser back arrow.
+  useEffect(() => {
+    const onPop = () => {
+      const path = window.location.pathname.replace(/^\/+/, "").split("/")[0];
+      if ((LEGAL_PAGE_KEYS as string[]).includes(path)) {
+        setCurrentPage(path);
+      } else if (!path) {
+        setCurrentPage("home");
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   const navStack = React.useRef<string[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -960,10 +976,25 @@ const App: React.FC = () => {
 
       default:
         // Legal pages: terms, privacy, refund, contact, about, pricing.
-        // Routed here so a missing case never silently 404s; LegalPage is
-        // the single component that owns all six.
+        // Wrap them in the same Header + Footer used on /about so the
+        // brand chrome matches the rest of the site instead of feeling
+        // like a stand-alone document.
         if ((LEGAL_PAGE_KEYS as string[]).includes(currentPage)) {
-          return <LegalPage page={currentPage as LegalPageKey} onNavigate={navigate} />;
+          return (
+            <>
+              <Header
+                onNavigate={navigate}
+                isLoggedIn={isLoggedIn}
+                onLoginClick={() => setIsLoginModalOpen(true)}
+                onLogout={handleLogout}
+                onSellClick={handleSellerOnboardingOpen}
+                onNavigateToSellerHub={handleNavigateToSellerHub}
+                currentPage={currentPage}
+              />
+              <LegalPage page={currentPage as LegalPageKey} onNavigate={navigate} />
+              <Footer onNavigate={navigate} />
+            </>
+          );
         }
         return null;
     }
