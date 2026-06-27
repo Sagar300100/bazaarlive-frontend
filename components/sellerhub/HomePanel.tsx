@@ -1,15 +1,42 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../../src/firebase';
 import { PlayIcon } from '../Icons';
 
 interface HomePanelProps { onScheduleShow: () => void; }
 
+// Pulls the seller's first name out of whatever Firebase Auth has on file.
+// Prefers displayName (set during signup), falls back to email local-part so
+// even legacy users see something sensible instead of the old hardcoded
+// "Sagar Singhal" string.
+function firstNameFromUser(u: { displayName?: string | null; email?: string | null } | null): string {
+    if (!u) return "";
+    const full = (u.displayName || "").trim();
+    if (full) return full.split(/\s+/)[0];
+    const email = u.email || "";
+    const local = email.split("@")[0] || "";
+    if (!local) return "";
+    return local.charAt(0).toUpperCase() + local.slice(1);
+}
+
 const HomePanel: React.FC<HomePanelProps> = ({ onScheduleShow }) => {
     const [tutorialTab, setTutorialTab] = useState('pre-show');
     const [bannerVisible, setBannerVisible] = useState(true);
+    const [firstName, setFirstName] = useState<string>(() => firstNameFromUser(auth.currentUser));
+
+    // Auth may not be hydrated yet on first render (e.g. hard refresh inside
+    // Seller Hub). Subscribe so the greeting updates as soon as the user is
+    // restored from localStorage.
+    useEffect(() => {
+        const unsub = onAuthStateChanged(auth, (u) => setFirstName(firstNameFromUser(u)));
+        return () => unsub();
+    }, []);
+
+    const greeting = firstName ? `Hello, ${firstName}!` : "Hello!";
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-[#1B3A6B]">Hello, Sagar Singhal!</h1>
+            <h1 className="text-3xl font-bold text-[#1B3A6B]">{greeting}</h1>
 
             {/* Welcome Banner */}
             {bannerVisible && (
