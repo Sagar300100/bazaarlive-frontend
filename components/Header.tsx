@@ -286,18 +286,40 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isLoggedIn, onLoginC
                 role="button"
                 tabIndex={0}
                 aria-label="Any & All Home"
-                onClick={() => setLogoMenu((prev) => !prev)}
+                onClick={() => {
+                  // Logged-out visitors expect the logo to always go home; the
+                  // "Switch to Selling" dropdown only makes sense for sellers
+                  // who actively swap modes, so keep that affordance only for
+                  // signed-in users.
+                  if (!isLoggedIn) {
+                    onNavigate("home");
+                  } else {
+                    setLogoMenu((prev) => !prev);
+                  }
+                }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") setLogoMenu((prev) => !prev);
+                  if (e.key === "Enter" || e.key === " ") {
+                    if (!isLoggedIn) onNavigate("home");
+                    else setLogoMenu((prev) => !prev);
+                  }
                 }}
                 className="flex items-center cursor-pointer"
               >
                 <Logo />
               </div>
-              {logoMenu && (
+              {isLoggedIn && logoMenu && (
                 <div className="logo-dropdown">
                   <button
                     className="w-full text-left px-3 py-2 rounded-md bg-white text-black font-semibold hover:bg-gray-100"
+                    onClick={() => {
+                      setLogoMenu(false);
+                      onNavigate("home");
+                    }}
+                  >
+                    Go to Home
+                  </button>
+                  <button
+                    className="w-full text-left px-3 py-2 rounded-md bg-white text-black font-semibold hover:bg-gray-100 mt-1"
                     onClick={() => {
                       setLogoMenu(false);
                       onSellClick();
