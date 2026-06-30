@@ -737,8 +737,11 @@
   height: 240px;
   object-fit: contain;
   pointer-events: none;
-  opacity: 0.45;
-  filter: drop-shadow(0 0 50px rgba(74,143,229,0.55));
+  /* full saturation — was 0.45 which washed the royal blue out to grey */
+  opacity: 1;
+  filter:
+    drop-shadow(0 0 28px rgba(74, 143, 229, 0.75))
+    drop-shadow(0 0 60px rgba(43, 108, 184, 0.55));
 }
 
 /* ── Footer (Section 7) ─────────────────────────────── */
