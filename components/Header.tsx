@@ -32,11 +32,11 @@ export const Logo = ({ onBack }: { onBack?: () => void }) => {
           {arrow}
         </span>
       )}
-      <div style={{ width:52, height:52, borderRadius:"50%", overflow:"hidden", background:"white", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ width:52, height:52, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
         <img
-          src="/logo.png?v=2"
+          src="/assets/brand/any_all_A_mark_transparent.png"
           alt="Any & All"
-          style={{ width:"90%", height:"90%", objectFit:"contain" }}
+          style={{ width:"100%", height:"100%", objectFit:"contain", display:"block" }}
         />
       </div>
     </div>

@@ -9,7 +9,9 @@ import ImmersiveLanding from "./components/ImmersiveLanding";
 import AccountSettingsPage from "./pages/AccountSettingsPage";
 import LoginModalV2 from "./components/LoginModalV2";
 import OnboardingModal from "./components/OnboardingModal";
-import SellerOnboardingModal from "./components/SellerOnboardingModal";
+// SellerOnboardingModal removed — BecomeSellerPage is now the single source
+// of truth for seller onboarding (gated at /seller-hub, persisted to
+// Firestore so it never re-asks completed steps on re-login).
 import SellerHubPage from "./pages/SellerHubPage";
 import AboutUsPage from "./pages/AboutUsPage";
 import LiveRoomPage from "./pages/LiveRoomPage";
@@ -23,6 +25,7 @@ import FaqArticlePage from "./pages/FaqArticlePage";
 import BrowsePage from "./pages/BrowsePage";
 
 import VerifyEmailGate from "./components/VerifyEmailGate";
+import HeroV2Preview from "./pages/HeroV2Preview";
 
 import type { ShowData } from "./services/api";
 import type { Filters } from "./components/buyer/Sidebar";
@@ -296,6 +299,17 @@ const initialFiltersState: Filters = {
 
 /* ======================== APP ======================== */
 const App: React.FC = () => {
+  // ── V1 hero preview short-circuit ─────────────────────────────────
+  // Visiting /?preview=hero-v2 renders only the new HeroStage in
+  // isolation. Used during the rebuild to review the new design
+  // without affecting the production landing.
+  if (typeof window !== "undefined") {
+    const previewFlag = new URLSearchParams(window.location.search).get("preview");
+    if (previewFlag === "hero-v2") {
+      return <HeroV2Preview />;
+    }
+  }
+
   // Lenis removed — global RAF every frame caused jank on non-landing pages
   // (Account Settings, Buyer Home etc.). Native scroll is fast on all devices.
 
@@ -329,7 +343,9 @@ const App: React.FC = () => {
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
   const [userPreferences, setUserPreferences] = useState<string[]>([]);
   const [isSeller, setIsSeller] = useState(false);
-  const [isSellerOnboardingOpen, setIsSellerOnboardingOpen] = useState(false);
+  // isSellerOnboardingOpen removed — the OLD 8-step modal is gone. The seller
+  // wizard now lives at /seller-hub via BecomeSellerPage and persists to
+  // Firestore, so re-login does not re-trigger it.
 
   const [scheduledShows, setScheduledShows] = useState<ShowData[]>([]);
   const [isLoadingShows, setIsLoadingShows] = useState(true);
@@ -375,7 +391,13 @@ const App: React.FC = () => {
       try {
         const s = await getSellerOnboarding();
         if (cancelled) return;
-        setSellerOnboardingComplete(!!s.completedAt);
+        const done = !!s.completedAt;
+        setSellerOnboardingComplete(done);
+        // Mirror the Firestore-backed completion flag into the legacy
+        // isSeller boolean so UI bits that still read it (header menus,
+        // seller-only chips) light up on first load without waiting for a
+        // session refresh.
+        if (done) setIsSeller(true);
       } catch {
         if (!cancelled) setSellerOnboardingComplete(false);
       }
@@ -633,15 +655,15 @@ const App: React.FC = () => {
     setCurrentPage("home");
   };
 
+  // "Switch to Selling" / "Become a Seller" entry point. Always lands on
+  // /seller-hub — that route is gated by BecomeSellerPage which reads the
+  // user's Firestore onboarding state and either resumes the wizard or
+  // renders the real dashboard. No more popup-on-every-login.
   const handleSellerOnboardingOpen = () => {
-    if (isSeller) handleNavigateToSellerHub("home");
-    else if (isLoggedIn) setIsSellerOnboardingOpen(true);
-    else setIsLoginModalOpen(true);
-  };
-
-  const handleSellerOnboardingComplete = () => {
-    setIsSeller(true);
-    setIsSellerOnboardingOpen(false);
+    if (!isLoggedIn) {
+      setIsLoginModalOpen(true);
+      return;
+    }
     handleNavigateToSellerHub("home");
   };
 
@@ -1068,11 +1090,7 @@ const App: React.FC = () => {
         }}
       />
 
-      <SellerOnboardingModal
-        isOpen={isSellerOnboardingOpen}
-        onClose={() => setIsSellerOnboardingOpen(false)}
-        onComplete={handleSellerOnboardingComplete}
-      />
+      {/* SellerOnboardingModal removed — see App.tsx imports for context. */}
     </div>
   );
 };
