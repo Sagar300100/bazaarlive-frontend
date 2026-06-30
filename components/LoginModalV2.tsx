@@ -145,12 +145,16 @@ const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openIn
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex flex-col items-center justify-center px-4 py-6"
+      className="fixed inset-0 z-[200] flex flex-col items-center px-4 py-8"
       style={{
         background:
-          "radial-gradient(ellipse 70% 50% at 50% 35%, rgba(43,108,184,0.18) 0%, rgba(5,10,24,0) 70%), rgba(5,10,24,0.72)",
+          "radial-gradient(ellipse 70% 50% at 50% 35%, rgba(43,108,184,0.18) 0%, rgba(5,10,24,0) 70%), rgba(5,10,24,0.78)",
         backdropFilter: "blur(14px)",
         WebkitBackdropFilter: "blur(14px)",
+        overflowY: "auto",
+        // Tall content scrolls inside the overlay so the modal never
+        // gets cropped beyond the viewport. Vertical centering is done
+        // with margin: auto on the modal below.
       }}
       onClick={onClose}
     >
@@ -160,7 +164,7 @@ const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openIn
         exit={{ opacity: 0, y: 20, scale: 0.96 }}
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-[460px] overflow-hidden"
+        className="relative w-full max-w-[480px]"
         style={{
           background: `linear-gradient(180deg, ${T.bgPanel} 0%, ${T.bgPanel2} 100%)`,
           borderRadius: 30,
@@ -171,6 +175,8 @@ const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openIn
             "inset 0 1px 0 rgba(255,255,255,0.06)",
           fontFamily: T.fontBody,
           color: T.white,
+          margin: "auto",  // vertical centring in the scrollable overlay
+          overflow: "hidden",
         }}
       >
         {/* Top edge electric-blue highlight */}
@@ -232,18 +238,34 @@ const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openIn
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-4 right-4 z-10 rounded-full p-1.5"
+          className="absolute z-20 rounded-full"
           style={{
-            color: T.mist,
-            background: "rgba(255,255,255,0.04)",
-            border: `1px solid ${T.hairline}`,
-            transition: "background 180ms, color 180ms",
+            top: 16,
+            right: 16,
+            width: 36,
+            height: 36,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: T.white,
+            background: "rgba(74,143,229,0.18)",
+            border: `1px solid ${T.hairlineStrong}`,
+            boxShadow: "0 0 16px rgba(74,143,229,0.25)",
+            transition: "background 180ms, transform 180ms, box-shadow 180ms",
             cursor: "pointer",
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.10)"; e.currentTarget.style.color = T.white; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = T.mist; }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(74,143,229,0.32)";
+            e.currentTarget.style.transform = "scale(1.06)";
+            e.currentTarget.style.boxShadow = "0 0 24px rgba(74,143,229,0.45)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(74,143,229,0.18)";
+            e.currentTarget.style.transform = "scale(1)";
+            e.currentTarget.style.boxShadow = "0 0 16px rgba(74,143,229,0.25)";
+          }}
         >
-          <X size={16} />
+          <X size={18} strokeWidth={2.2} />
         </button>
 
         <div style={{ position: "relative", padding: "44px 36px 36px" }}>
@@ -806,7 +828,7 @@ const styles = `
 .fixed.z-\\[200\\] input::placeholder { color: rgba(255,255,255,0.40); }
 
 @media (max-width: 600px) {
-  .fixed.z-\\[200\\] > div[style*="max-width"] { padding: 36px 22px 26px !important; }
+  .fixed.z-\\[200\\] > div[style*="max-width"] > div:last-child { padding: 36px 22px 26px !important; }
 }
 `;
 if (typeof document !== "undefined" && !document.querySelector('style[data-lm-v2]')) {
