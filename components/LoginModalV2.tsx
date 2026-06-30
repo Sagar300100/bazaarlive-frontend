@@ -3,7 +3,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Lock, User, ArrowRight, Loader2, X, ShieldCheck, Sparkles, CheckCircle2, AtSign } from "lucide-react";
+import {
+  Mail, Lock, User, ArrowRight, Loader2, X, ShieldCheck, Sparkles,
+  CheckCircle2, AtSign, Zap, Star, HelpCircle, Eye, EyeOff,
+} from "lucide-react";
 import {
   login as apiLogin,
   register as apiRegister,
@@ -11,8 +14,10 @@ import {
 } from "../services/api";
 
 /* ══════════════════════════════════════════════
-   LoginModalV2 — modern auth with RHF + Zod
-   Signup/reset use Firebase email links — no custom OTP layer.
+   LoginModalV2 — auth flows with RHF + Zod
+   Visual layer matches the dark navy / royal blue landing
+   page. All handlers, schemas, panels, and the Step state
+   machine are preserved from the previous rev.
    ══════════════════════════════════════════════ */
 
 interface Props {
@@ -25,7 +30,7 @@ interface Props {
 type Step = "login" | "register" | "forgot" | "check-email";
 type CheckEmailFlow = "register" | "reset";
 
-/* ── Zod schemas ── */
+/* ── Zod schemas (unchanged) ── */
 const loginSchema = z.object({
   email:    z.string().email("Enter a valid email"),
   password: z.string().min(6, "Minimum 6 characters"),
@@ -52,11 +57,35 @@ const forgotSchema = z.object({
 });
 type ForgotVals = z.infer<typeof forgotSchema>;
 
+/* ── Design tokens (mirror styles/tokens.ts but inline so the modal
+       is self-contained and not dependent on the .brand-v2 wrapper) ── */
+const T = {
+  bgBase:    "#050A18",
+  bgPanel:   "rgba(11,31,63,0.72)",
+  bgPanel2:  "rgba(7,18,42,0.88)",
+  bgInput:   "rgba(11,31,63,0.55)",
+  bgInputFocus: "rgba(11,31,63,0.85)",
+  navy:      "#0B1F3F",
+  blue:      "#2B6CB8",
+  blueGlow:  "#4A8FE5",
+  blueBright:"#6BB6FF",
+  white:     "#FFFFFF",
+  mist:      "rgba(255,255,255,0.78)",
+  mistSoft:  "rgba(255,255,255,0.55)",
+  mistFaint: "rgba(255,255,255,0.40)",
+  hairline:  "rgba(74,143,229,0.22)",
+  hairlineStrong: "rgba(74,143,229,0.42)",
+  liveRed:   "#E63946",
+  fontDisplay: '"Cormorant Garamond", "PP Editorial New", Georgia, serif',
+  fontBody:    '"Inter", "Söhne", system-ui, -apple-system, sans-serif',
+  fontMono:    '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace',
+};
+
 const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openInForgot }) => {
-  const [step, setStep]         = useState<Step>(openInForgot ? "forgot" : "login");
-  const [sentTo, setSentTo]     = useState<{ email: string; flow: CheckEmailFlow } | null>(null);
-  const [busy,    setBusy]      = useState(false);
-  const [error,   setError]     = useState<string | null>(null);
+  const [step,    setStep]    = useState<Step>(openInForgot ? "forgot" : "login");
+  const [sentTo,  setSentTo]  = useState<{ email: string; flow: CheckEmailFlow } | null>(null);
+  const [busy,    setBusy]    = useState(false);
+  const [error,   setError]   = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -66,7 +95,6 @@ const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openIn
     }
   }, [isOpen, openInForgot]);
 
-  /* ── Lock body scroll while open ── */
   useEffect(() => {
     if (!isOpen) return;
     const prev = document.body.style.overflow;
@@ -76,9 +104,6 @@ const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openIn
 
   if (!isOpen) return null;
 
-  /* ──────────────────────────────────────────
-     HANDLERS
-     ────────────────────────────────────────── */
   const handleLogin = async (data: LoginVals) => {
     setBusy(true); setError(null);
     try {
@@ -96,8 +121,6 @@ const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openIn
     setBusy(true); setError(null);
     try {
       await apiRegister(data.email, data.password, data.name, data.username);
-      // apiRegister already calls Firebase sendEmailVerification.
-      // Show a single "check your email" panel — no custom OTP step.
       setSentTo({ email: data.email, flow: "register" });
       setStep("check-email");
     } catch (e: any) {
@@ -120,13 +143,15 @@ const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openIn
     }
   };
 
-  /* ──────────────────────────────────────────
-     OVERLAY + CARD
-     ────────────────────────────────────────── */
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-      style={{ background: "rgba(7,13,27,0.72)", backdropFilter: "blur(12px)" }}
+      className="fixed inset-0 z-[200] flex flex-col items-center justify-center px-4 py-6"
+      style={{
+        background:
+          "radial-gradient(ellipse 70% 50% at 50% 35%, rgba(43,108,184,0.18) 0%, rgba(5,10,24,0) 70%), rgba(5,10,24,0.72)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+      }}
       onClick={onClose}
     >
       <motion.div
@@ -135,32 +160,93 @@ const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openIn
         exit={{ opacity: 0, y: 20, scale: 0.96 }}
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-[420px] overflow-hidden"
+        className="relative w-full max-w-[460px] overflow-hidden"
         style={{
-          background: "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)",
-          borderRadius: 24,
-          boxShadow: "0 30px 100px rgba(15,42,82,0.45), 0 1px 0 rgba(255,255,255,0.6) inset",
-          fontFamily: "Rubik, system-ui, sans-serif",
+          background: `linear-gradient(180deg, ${T.bgPanel} 0%, ${T.bgPanel2} 100%)`,
+          borderRadius: 30,
+          border: `1px solid ${T.hairline}`,
+          boxShadow:
+            "0 30px 100px -10px rgba(43,108,184,0.45), " +
+            "0 0 60px -10px rgba(74,143,229,0.30), " +
+            "inset 0 1px 0 rgba(255,255,255,0.06)",
+          fontFamily: T.fontBody,
+          color: T.white,
         }}
       >
-        {/* aurora top accent */}
-        <div style={{
-          position: "absolute", top: -120, left: -80, right: -80, height: 220,
-          background: "radial-gradient(ellipse at center, rgba(123,184,255,0.55) 0%, transparent 70%)",
-          filter: "blur(30px)", pointerEvents: "none",
-        }} />
+        {/* Top edge electric-blue highlight */}
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: -1, left: "15%", right: "15%",
+            height: 2,
+            background: `linear-gradient(90deg, transparent 0%, ${T.blueBright} 50%, transparent 100%)`,
+            boxShadow: `0 0 24px ${T.blueBright}`,
+            opacity: 0.85,
+            pointerEvents: "none",
+          }}
+        />
+        {/* Bottom edge electric-blue highlight */}
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            bottom: -1, left: "20%", right: "20%",
+            height: 2,
+            background: `linear-gradient(90deg, transparent 0%, ${T.blueBright} 50%, transparent 100%)`,
+            boxShadow: `0 0 24px ${T.blueBright}`,
+            opacity: 0.55,
+            pointerEvents: "none",
+          }}
+        />
+        {/* Soft amber-free glow inside the card (royal-blue radial) */}
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: -160, left: -100, right: -100, height: 320,
+            background: "radial-gradient(ellipse at center, rgba(74,143,229,0.30) 0%, transparent 70%)",
+            filter: "blur(40px)",
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Decorative A mark — faint, large, off-frame to the right */}
+        <img
+          src="/assets/brand/any_all_A_mark_transparent.png"
+          alt=""
+          aria-hidden
+          style={{
+            position: "absolute",
+            right: -110, top: "50%",
+            transform: "translateY(-50%)",
+            width: 360, height: 360,
+            objectFit: "contain",
+            opacity: 0.06,
+            filter: "drop-shadow(0 0 30px rgba(74,143,229,0.35))",
+            pointerEvents: "none",
+          }}
+        />
 
         {/* close */}
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-4 right-4 z-10 rounded-full p-1.5 transition hover:bg-slate-100"
-          style={{ color: "#0F2A52" }}
+          className="absolute top-4 right-4 z-10 rounded-full p-1.5"
+          style={{
+            color: T.mist,
+            background: "rgba(255,255,255,0.04)",
+            border: `1px solid ${T.hairline}`,
+            transition: "background 180ms, color 180ms",
+            cursor: "pointer",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.10)"; e.currentTarget.style.color = T.white; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = T.mist; }}
         >
-          <X size={18} />
+          <X size={16} />
         </button>
 
-        <div style={{ position: "relative", padding: "40px 32px 32px" }}>
+        <div style={{ position: "relative", padding: "44px 36px 36px" }}>
           <AnimatePresence mode="wait">
             {step === "login"       && <LoginPanel      key="login"       onSubmit={handleLogin}    onSwitch={(s) => { setStep(s); setError(null); }} busy={busy} error={error} />}
             {step === "register"    && <RegisterPanel   key="register"    onSubmit={handleRegister} onSwitch={(s) => { setStep(s); setError(null); }} busy={busy} error={error} />}
@@ -169,12 +255,15 @@ const LoginModalV2: React.FC<Props> = ({ isOpen, onClose, onLoginSuccess, openIn
           </AnimatePresence>
         </div>
       </motion.div>
+
+      {/* Trust row — sits below the modal, muted */}
+      <TrustRow />
     </div>
   );
 };
 
 /* ══════════════════════════════════════════════
-   SHARED  styles + components
+   SHARED  components
    ══════════════════════════════════════════════ */
 const fadeSlide = {
   initial: { opacity: 0, x: 16 },
@@ -183,15 +272,65 @@ const fadeSlide = {
   transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as const },
 };
 
-const Title: React.FC<{ eyebrow?: string; title: string; sub?: string }> = ({ eyebrow, title, sub }) => (
-  <div className="text-center" style={{ marginBottom: 26 }}>
+const Pill: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
+  <div
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      padding: "6px 14px",
+      borderRadius: 999,
+      background: "rgba(74,143,229,0.10)",
+      color: T.blueBright,
+      border: `1px solid ${T.hairlineStrong}`,
+      fontFamily: T.fontMono,
+      fontSize: 11,
+      fontWeight: 600,
+      letterSpacing: "0.18em",
+      textTransform: "uppercase",
+      boxShadow: "0 0 16px rgba(74,143,229,0.18)",
+    }}
+  >
+    {icon}
+    {label}
+  </div>
+);
+
+const Title: React.FC<{ eyebrow?: string; eyebrowIcon?: React.ReactNode; title: string; sub?: string }> = ({
+  eyebrow, eyebrowIcon, title, sub,
+}) => (
+  <div style={{ textAlign: "center", marginBottom: 26 }}>
     {eyebrow && (
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 999, background: "rgba(43,108,184,0.08)", color: "#2B6CB8", fontSize: 11, fontWeight: 700, letterSpacing: 1.4, marginBottom: 14 }}>
-        <Sparkles size={12} /> {eyebrow}
+      <div style={{ marginBottom: 18 }}>
+        <Pill icon={eyebrowIcon ?? <Sparkles size={12} />} label={eyebrow} />
       </div>
     )}
-    <h2 style={{ fontFamily: "Outfit, sans-serif", fontWeight: 800, fontSize: 28, color: "#0F2A52", letterSpacing: -0.5, lineHeight: 1.15, margin: 0 }}>{title}</h2>
-    {sub && <p style={{ marginTop: 8, fontSize: 14, color: "#475569", lineHeight: 1.5 }}>{sub}</p>}
+    <h2
+      style={{
+        fontFamily: T.fontDisplay,
+        fontWeight: 500,
+        fontSize: 36,
+        lineHeight: 1.05,
+        letterSpacing: "-0.02em",
+        color: T.white,
+        margin: 0,
+      }}
+    >
+      {title}
+    </h2>
+    {sub && (
+      <p
+        style={{
+          marginTop: 10,
+          fontSize: 14,
+          color: T.mist,
+          lineHeight: 1.55,
+          fontFamily: T.fontBody,
+        }}
+      >
+        {sub}
+      </p>
+    )}
   </div>
 );
 
@@ -202,49 +341,143 @@ const Field: React.FC<{
   error?: string;
   registerProps: any;
   autoFocus?: boolean;
-}> = ({ Icon, type = "text", placeholder, error, registerProps, autoFocus }) => (
-  <div style={{ marginBottom: 14 }}>
-    <div style={{ position: "relative" }}>
-      <Icon size={16} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: error ? "#F43F5E" : "#94A3B8", pointerEvents: "none" }} />
-      <input
-        {...registerProps}
-        type={type}
-        placeholder={placeholder}
-        autoFocus={autoFocus}
-        autoComplete="off"
-        style={{
-          width: "100%", padding: "13px 14px 13px 40px",
-          borderRadius: 12,
-          border: `1.5px solid ${error ? "#F43F5E" : "#E2E8F0"}`,
-          background: "white", color: "#0F2A52",
-          fontSize: 14, fontWeight: 500, outline: "none",
-          transition: "border-color 180ms ease, box-shadow 180ms ease",
-        }}
-        onFocus={(e) => { if (!error) { e.currentTarget.style.borderColor = "#2B6CB8"; e.currentTarget.style.boxShadow = "0 0 0 4px rgba(43,108,184,0.12)"; } }}
-        onBlur={(e)  => { e.currentTarget.style.borderColor = error ? "#F43F5E" : "#E2E8F0"; e.currentTarget.style.boxShadow = "none"; }}
-      />
-    </div>
-    {error && <div style={{ marginTop: 6, fontSize: 12, color: "#F43F5E", paddingLeft: 4 }}>{error}</div>}
-  </div>
-);
+  /** Show eye toggle for password visibility */
+  password?: boolean;
+}> = ({ Icon, type = "text", placeholder, error, registerProps, autoFocus, password }) => {
+  const [showPw, setShowPw] = useState(false);
+  const inputType = password ? (showPw ? "text" : "password") : type;
 
-const PrimaryBtn: React.FC<{ children: React.ReactNode; type?: "button" | "submit"; busy?: boolean; onClick?: () => void }> = ({ children, type = "submit", busy, onClick }) => (
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ position: "relative" }}>
+        <Icon
+          size={16}
+          style={{
+            position: "absolute",
+            left: 16, top: "50%",
+            transform: "translateY(-50%)",
+            color: error ? T.liveRed : T.mistSoft,
+            pointerEvents: "none",
+          }}
+        />
+        <input
+          {...registerProps}
+          type={inputType}
+          placeholder={placeholder}
+          autoFocus={autoFocus}
+          autoComplete="off"
+          style={{
+            width: "100%",
+            padding: `14px ${password ? 46 : 14}px 14px 44px`,
+            borderRadius: 14,
+            border: `1px solid ${error ? T.liveRed : T.hairline}`,
+            background: T.bgInput,
+            color: T.white,
+            fontSize: 14,
+            fontWeight: 400,
+            fontFamily: T.fontBody,
+            outline: "none",
+            transition: "border-color 180ms ease, box-shadow 180ms ease, background 180ms ease",
+            backdropFilter: "blur(8px)",
+          }}
+          onFocus={(e) => {
+            if (!error) {
+              e.currentTarget.style.borderColor = T.blueGlow;
+              e.currentTarget.style.boxShadow = `0 0 0 4px rgba(74,143,229,0.18), 0 0 24px rgba(74,143,229,0.25)`;
+              e.currentTarget.style.background = T.bgInputFocus;
+            }
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = error ? T.liveRed : T.hairline;
+            e.currentTarget.style.boxShadow = "none";
+            e.currentTarget.style.background = T.bgInput;
+          }}
+        />
+        {password && (
+          <button
+            type="button"
+            onClick={() => setShowPw((v) => !v)}
+            aria-label={showPw ? "Hide password" : "Show password"}
+            style={{
+              position: "absolute",
+              right: 12, top: "50%",
+              transform: "translateY(-50%)",
+              background: "transparent",
+              border: "none",
+              color: T.mistSoft,
+              cursor: "pointer",
+              padding: 4,
+              display: "inline-flex",
+            }}
+          >
+            {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        )}
+      </div>
+      {error && (
+        <div
+          style={{
+            marginTop: 6,
+            fontSize: 12,
+            color: T.liveRed,
+            paddingLeft: 4,
+            fontFamily: T.fontBody,
+          }}
+        >
+          {error}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PrimaryBtn: React.FC<{
+  children: React.ReactNode;
+  type?: "button" | "submit";
+  busy?: boolean;
+  onClick?: () => void;
+}> = ({ children, type = "submit", busy, onClick }) => (
   <button
     type={type}
     onClick={onClick}
     disabled={busy}
     style={{
-      width: "100%", padding: "13px 18px",
-      borderRadius: 12, border: "none",
-      background: busy ? "#7BB8FF" : "linear-gradient(135deg, #2B6CB8, #1A4B8C)",
-      color: "white", fontFamily: "Outfit, sans-serif", fontWeight: 700, fontSize: 14,
-      letterSpacing: 0.2, cursor: busy ? "wait" : "pointer",
-      display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
-      boxShadow: "0 10px 30px rgba(43,108,184,0.35)",
-      transition: "transform 180ms ease, box-shadow 180ms ease",
+      width: "100%",
+      padding: "15px 18px",
+      borderRadius: 14,
+      border: "none",
+      background: busy
+        ? "linear-gradient(135deg, #2A507A, #244A75)"
+        : `linear-gradient(135deg, ${T.blue} 0%, ${T.blueBright} 100%)`,
+      color: T.white,
+      fontFamily: T.fontBody,
+      fontWeight: 600,
+      fontSize: 14.5,
+      letterSpacing: 0.2,
+      cursor: busy ? "wait" : "pointer",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+      boxShadow:
+        "0 14px 36px -10px rgba(74,143,229,0.65), " +
+        "inset 0 1px 0 rgba(255,255,255,0.20)",
+      transition: "transform 180ms ease, box-shadow 220ms ease, filter 200ms ease",
     }}
-    onMouseEnter={(e) => { if (!busy) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 14px 36px rgba(43,108,184,0.5)"; } }}
-    onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 10px 30px rgba(43,108,184,0.35)"; }}
+    onMouseEnter={(e) => {
+      if (!busy) {
+        e.currentTarget.style.transform = "translateY(-1px)";
+        e.currentTarget.style.boxShadow =
+          "0 20px 50px -10px rgba(74,143,229,0.85), inset 0 1px 0 rgba(255,255,255,0.30)";
+        e.currentTarget.style.filter = "brightness(1.08)";
+      }
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = "translateY(0)";
+      e.currentTarget.style.boxShadow =
+        "0 14px 36px -10px rgba(74,143,229,0.65), inset 0 1px 0 rgba(255,255,255,0.20)";
+      e.currentTarget.style.filter = "none";
+    }}
   >
     {busy ? <Loader2 size={16} className="lm-spin" /> : null}
     {children}
@@ -252,19 +485,124 @@ const PrimaryBtn: React.FC<{ children: React.ReactNode; type?: "button" | "submi
 );
 
 const SwitchLink: React.FC<{ children: React.ReactNode; onClick: () => void }> = ({ children, onClick }) => (
-  <button onClick={onClick} type="button" style={{ background: "transparent", border: "none", color: "#2B6CB8", fontWeight: 700, fontSize: 13, cursor: "pointer", padding: 0 }}>
+  <button
+    onClick={onClick}
+    type="button"
+    style={{
+      background: "transparent",
+      border: "none",
+      color: T.blueBright,
+      fontWeight: 600,
+      fontSize: 13,
+      cursor: "pointer",
+      padding: 0,
+      fontFamily: T.fontBody,
+      transition: "color 180ms",
+    }}
+    onMouseEnter={(e) => { e.currentTarget.style.color = T.white; }}
+    onMouseLeave={(e) => { e.currentTarget.style.color = T.blueBright; }}
+  >
     {children}
   </button>
 );
 
 const ErrorBanner: React.FC<{ msg: string }> = ({ msg }) => (
   <motion.div
-    initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-    style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.25)", color: "#BE123C", padding: "10px 12px", borderRadius: 10, fontSize: 13, marginBottom: 14, lineHeight: 1.4 }}
+    initial={{ opacity: 0, y: -6 }}
+    animate={{ opacity: 1, y: 0 }}
+    style={{
+      background: "rgba(230,57,70,0.10)",
+      border: "1px solid rgba(230,57,70,0.35)",
+      color: "#FECDD3",
+      padding: "10px 14px",
+      borderRadius: 12,
+      fontSize: 13,
+      marginBottom: 14,
+      lineHeight: 1.4,
+      fontFamily: T.fontBody,
+    }}
   >
     {msg}
   </motion.div>
 );
+
+/* Tiny divider used in the bottom-of-form "OR" rule */
+const OrDivider: React.FC = () => (
+  <div
+    aria-hidden
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      margin: "22px 0 16px",
+      color: T.mistFaint,
+      fontFamily: T.fontMono,
+      fontSize: 11,
+      letterSpacing: "0.20em",
+    }}
+  >
+    <span style={{ flex: 1, height: 1, background: T.hairline }} />
+    <span>OR</span>
+    <span style={{ flex: 1, height: 1, background: T.hairline }} />
+  </div>
+);
+
+/* Trust row — 4 muted items below the modal */
+const TrustRow: React.FC = () => {
+  const items: { Icon: React.ComponentType<any>; title: string; sub: string }[] = [
+    { Icon: ShieldCheck, title: "Secure & trusted",   sub: "Your data is always protected" },
+    { Icon: Zap,         title: "Fast & easy",        sub: "Sign up in under 30 seconds" },
+    { Icon: Star,        title: "Exclusive access",   sub: "Be first for drops & live shows" },
+    { Icon: HelpCircle,  title: "Here to help",       sub: "24/7 customer support" },
+  ];
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        marginTop: 28,
+        display: "flex",
+        gap: 28,
+        flexWrap: "wrap",
+        justifyContent: "center",
+        maxWidth: 920,
+        pointerEvents: "none",
+      }}
+    >
+      {items.map((it) => (
+        <div
+          key={it.title}
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            color: T.mistSoft,
+            fontFamily: T.fontBody,
+          }}
+        >
+          <div
+            style={{
+              width: 32, height: 32,
+              borderRadius: 999,
+              background: "rgba(74,143,229,0.06)",
+              border: `1px solid ${T.hairline}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: T.blueBright,
+              flexShrink: 0,
+            }}
+          >
+            <it.Icon size={14} strokeWidth={1.6} />
+          </div>
+          <div style={{ lineHeight: 1.25 }}>
+            <div style={{ fontSize: 12, color: T.white, fontWeight: 500 }}>{it.title}</div>
+            <div style={{ fontSize: 11, color: T.mistFaint }}>{it.sub}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 /* ══════════════════════════════════════════════
    LOGIN PANEL
@@ -275,18 +613,37 @@ const LoginPanel: React.FC<{ onSubmit: (v: LoginVals) => void; onSwitch: (s: Ste
   });
   return (
     <motion.form {...fadeSlide} onSubmit={handleSubmit(onSubmit)}>
-      <Title eyebrow="WELCOME BACK" title="Sign in to Any & All" sub="Bid live. Win live. Get it shipped." />
+      <Title
+        eyebrow="WELCOME BACK"
+        eyebrowIcon={<ShieldCheck size={12} />}
+        title="Sign in"
+        sub="Bid live. Win live. Get it shipped."
+      />
       {error && <ErrorBanner msg={error} />}
-      <Field Icon={Mail}  type="email"    placeholder="Email address" error={errors.email?.message}    registerProps={register("email")}    autoFocus />
-      <Field Icon={Lock}  type="password" placeholder="Password"      error={errors.password?.message} registerProps={register("password")} />
+      <Field
+        Icon={Mail} type="email"
+        placeholder="Email address"
+        error={errors.email?.message}
+        registerProps={register("email")}
+        autoFocus
+      />
+      <Field
+        Icon={Lock} type="password" password
+        placeholder="Password"
+        error={errors.password?.message}
+        registerProps={register("password")}
+      />
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 18 }}>
         <SwitchLink onClick={() => onSwitch("forgot")}>Forgot password?</SwitchLink>
       </div>
       <PrimaryBtn busy={busy}>
         Sign In <ArrowRight size={16} />
       </PrimaryBtn>
-      <div style={{ textAlign: "center", marginTop: 22, fontSize: 13, color: "#475569" }}>
-        New to Any &amp; All? <SwitchLink onClick={() => onSwitch("register")}>Create an account</SwitchLink>
+
+      <OrDivider />
+
+      <div style={{ textAlign: "center", fontSize: 13, color: T.mist, fontFamily: T.fontBody }}>
+        New here? <SwitchLink onClick={() => onSwitch("register")}>Create an account</SwitchLink>
       </div>
     </motion.form>
   );
@@ -301,16 +658,47 @@ const RegisterPanel: React.FC<{ onSubmit: (v: RegisterVals) => void; onSwitch: (
   });
   return (
     <motion.form {...fadeSlide} onSubmit={handleSubmit(onSubmit)}>
-      <Title eyebrow="JOIN" title="Create your account" sub="Get early access to India's first live-auction marketplace." />
+      <Title
+        eyebrow="JOIN"
+        eyebrowIcon={<Sparkles size={12} />}
+        title="Create your account"
+        sub="Get early access to India's first live-shopping marketplace."
+      />
       {error && <ErrorBanner msg={error} />}
-      <Field Icon={User}   placeholder="Full name (as on Aadhaar)" error={errors.name?.message}     registerProps={register("name")} autoFocus />
-      <Field Icon={AtSign} placeholder="Username (your shop handle)" error={errors.username?.message} registerProps={register("username")} />
-      <Field Icon={Mail}   type="email"    placeholder="Email address"     error={errors.email?.message}    registerProps={register("email")} />
-      <Field Icon={Lock}   type="password" placeholder="Create a password" error={errors.password?.message} registerProps={register("password")} />
-      <PrimaryBtn busy={busy}>
-        Create Account <ArrowRight size={16} />
-      </PrimaryBtn>
-      <div style={{ textAlign: "center", marginTop: 22, fontSize: 13, color: "#475569" }}>
+      <Field
+        Icon={User}
+        placeholder="Full name"
+        error={errors.name?.message}
+        registerProps={register("name")}
+        autoFocus
+      />
+      <Field
+        Icon={AtSign}
+        placeholder="Username"
+        error={errors.username?.message}
+        registerProps={register("username")}
+      />
+      <Field
+        Icon={Mail} type="email"
+        placeholder="Email address"
+        error={errors.email?.message}
+        registerProps={register("email")}
+      />
+      <Field
+        Icon={Lock} type="password" password
+        placeholder="Password"
+        error={errors.password?.message}
+        registerProps={register("password")}
+      />
+      <div style={{ marginTop: 4 }}>
+        <PrimaryBtn busy={busy}>
+          Create Account <ArrowRight size={16} />
+        </PrimaryBtn>
+      </div>
+
+      <OrDivider />
+
+      <div style={{ textAlign: "center", fontSize: 13, color: T.mist, fontFamily: T.fontBody }}>
         Already have an account? <SwitchLink onClick={() => onSwitch("login")}>Sign in</SwitchLink>
       </div>
     </motion.form>
@@ -326,13 +714,27 @@ const ForgotPanel: React.FC<{ onSubmit: (v: ForgotVals) => void; onSwitch: (s: S
   });
   return (
     <motion.form {...fadeSlide} onSubmit={handleSubmit(onSubmit)}>
-      <Title eyebrow="RECOVER" title="Reset your password" sub="We'll send a 6-digit code to your email." />
+      <Title
+        eyebrow="RECOVER"
+        eyebrowIcon={<Mail size={12} />}
+        title="Reset your password"
+        sub="We'll email you a secure link to set a new password."
+      />
       {error && <ErrorBanner msg={error} />}
-      <Field Icon={Mail} type="email" placeholder="Email address" error={errors.email?.message} registerProps={register("email")} autoFocus />
+      <Field
+        Icon={Mail} type="email"
+        placeholder="Email address"
+        error={errors.email?.message}
+        registerProps={register("email")}
+        autoFocus
+      />
       <PrimaryBtn busy={busy}>
-        Send Code <ArrowRight size={16} />
+        Send reset link <ArrowRight size={16} />
       </PrimaryBtn>
-      <div style={{ textAlign: "center", marginTop: 22, fontSize: 13, color: "#475569" }}>
+
+      <OrDivider />
+
+      <div style={{ textAlign: "center", fontSize: 13, color: T.mist, fontFamily: T.fontBody }}>
         Remembered? <SwitchLink onClick={() => onSwitch("login")}>Back to sign in</SwitchLink>
       </div>
     </motion.form>
@@ -340,20 +742,22 @@ const ForgotPanel: React.FC<{ onSubmit: (v: ForgotVals) => void; onSwitch: (s: S
 };
 
 /* ══════════════════════════════════════════════
-   CHECK-EMAIL PANEL — confirmation after register/reset
-   We rely on Firebase email links, so no code-entry UI.
+   CHECK-EMAIL PANEL
    ══════════════════════════════════════════════ */
 const CheckEmailPanel: React.FC<{ email: string; flow: CheckEmailFlow; onDone: () => void; onBack: () => void }> = ({ email, flow, onDone, onBack }) => (
   <motion.div {...fadeSlide}>
     <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-      <div style={{
-        width: 72, height: 72, borderRadius: 24,
-        background: "linear-gradient(135deg,#E0EFFF,#F8FAFC)",
-        border: "1.5px solid rgba(43,108,184,0.2)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: "0 8px 24px rgba(43,108,184,0.18)",
-      }}>
-        <Mail size={32} style={{ color: "#2B6CB8" }} />
+      <div
+        style={{
+          width: 76, height: 76, borderRadius: 22,
+          background: "rgba(74,143,229,0.10)",
+          border: `1px solid ${T.hairlineStrong}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 0 30px rgba(74,143,229,0.25)",
+          color: T.blueBright,
+        }}
+      >
+        <Mail size={30} />
       </div>
     </div>
 
@@ -367,14 +771,17 @@ const CheckEmailPanel: React.FC<{ email: string; flow: CheckEmailFlow; onDone: (
       }
     />
 
-    <div style={{
-      display: "flex", alignItems: "center", gap: 10,
-      background: "rgba(34,197,94,0.08)",
-      border: "1.5px solid rgba(34,197,94,0.2)",
-      borderRadius: 12, padding: "10px 14px",
-      fontSize: 13, color: "#15803D", marginBottom: 22,
-    }}>
-      <CheckCircle2 size={16} />
+    <div
+      style={{
+        display: "flex", alignItems: "center", gap: 10,
+        background: "rgba(74,143,229,0.08)",
+        border: `1px solid ${T.hairline}`,
+        borderRadius: 12, padding: "10px 14px",
+        fontSize: 13, color: T.mist, marginBottom: 22,
+        fontFamily: T.fontBody,
+      }}
+    >
+      <CheckCircle2 size={16} style={{ color: T.blueBright }} />
       <span>Link expires in 1 hour. Check spam if you don't see it.</span>
     </div>
 
@@ -382,7 +789,7 @@ const CheckEmailPanel: React.FC<{ email: string; flow: CheckEmailFlow; onDone: (
       Got it <ArrowRight size={16} />
     </PrimaryBtn>
 
-    <div style={{ textAlign: "center", marginTop: 22, fontSize: 13, color: "#475569" }}>
+    <div style={{ textAlign: "center", marginTop: 22, fontSize: 13, color: T.mist, fontFamily: T.fontBody }}>
       Wrong email? <SwitchLink onClick={onBack}>Try a different email</SwitchLink>
     </div>
   </motion.div>
@@ -393,8 +800,14 @@ const CheckEmailPanel: React.FC<{ email: string; flow: CheckEmailFlow; onDone: (
    ══════════════════════════════════════════════ */
 const styles = `
 @keyframes lm-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@keyframes lm-caret { 50% { opacity: 0; } }
 .lm-spin { animation: lm-spin 0.8s linear infinite; }
+
+/* Make placeholder text colour readable on dark inputs */
+.fixed.z-\\[200\\] input::placeholder { color: rgba(255,255,255,0.40); }
+
+@media (max-width: 600px) {
+  .fixed.z-\\[200\\] > div[style*="max-width"] { padding: 36px 22px 26px !important; }
+}
 `;
 if (typeof document !== "undefined" && !document.querySelector('style[data-lm-v2]')) {
   const tag = document.createElement('style');
