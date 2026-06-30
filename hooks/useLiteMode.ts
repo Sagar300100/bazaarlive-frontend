@@ -17,17 +17,20 @@ export interface LiteModeState {
 /**
  * "Lite" mode: render the calm, no-WebGL variant.
  *
- * V1 trigger rules (deliberately conservative — the prior rev was too
- * aggressive and forced desktop into lite mode unexpectedly):
+ * V2 trigger rules — production minded:
  *   1. Explicit URL override:  ?lite=on  /  ?lite=off
- *   2. prefers-reduced-motion: reduce
- *   3. viewport ≤ 640px (real phones only; preview panes and tablets stay
- *      on the full path)
+ *   2. viewport ≤ 640px (real phones only)
  *
- * REMOVED checks vs prior rev:
- *   - navigator.deviceMemory < 4 — Chromium caps this to 4 on some
- *     hardware, falsely triggering lite mode on perfectly capable laptops.
- *   - 820px viewport threshold — was matching narrow preview panes.
+ * REMOVED prefers-reduced-motion check: Windows users with the system
+ * "show animations" setting off were getting the static lite path on
+ * desktop, which made the hero look broken. We now respect that
+ * preference by toning down motion *inside* the R3F scene where it
+ * matters (see CSS @media prefers-reduced-motion rules) rather than
+ * skipping WebGL entirely.
+ *
+ * REMOVED checks (earlier revs):
+ *   - navigator.deviceMemory < 4 — Chromium caps to 4 unreliably
+ *   - 820px viewport threshold — caught narrow preview panes
  *
  * Decided ONCE at mount; does not flip mid-session.
  */
@@ -56,11 +59,12 @@ export function useLiteMode(): LiteModeState {
 
     const diag = { vw, vh, reducedMotion, deviceMemory, urlOverride };
 
-    if (urlOverride === 'on')  return { lite: true,  reason: 'URL ?lite=on',                diag };
-    if (urlOverride === 'off') return { lite: false, reason: '',                            diag };
-    if (reducedMotion)         return { lite: true,  reason: 'prefers-reduced-motion: reduce', diag };
-    if (vw <= 640)             return { lite: true,  reason: `narrow viewport (${vw}px ≤ 640px)`, diag };
+    if (urlOverride === 'on')  return { lite: true,  reason: 'URL ?lite=on',                       diag };
+    if (urlOverride === 'off') return { lite: false, reason: '',                                   diag };
+    if (vw <= 640)             return { lite: true,  reason: `narrow viewport (${vw}px ≤ 640px)`,  diag };
 
+    // Note: prefers-reduced-motion is intentionally NOT a lite trigger.
+    // We still observe it for telemetry but no longer skip the R3F path.
     return { lite: false, reason: '', diag };
   });
 
