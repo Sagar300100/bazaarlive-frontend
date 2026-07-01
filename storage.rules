@@ -1,0 +1,21 @@
+rules_version = '2';
+
+// Any & All — Firebase Storage security rules
+// ──────────────────────────────────────────────────────────────
+// Bucket exists but is unused today. Deny-all keeps it that way so
+// that when someone (or a Firebase Studio wizard) later enables an
+// upload flow, they cannot silently ship an "allow all" bucket that
+// leaks whatever gets uploaded.
+//
+// When we DO enable uploads, add specific /users/{uid}/… and
+// /public/… blocks above the catch-all — same shape as
+// firestore.rules — and keep this bottom deny-all in place.
+// ──────────────────────────────────────────────────────────────
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
