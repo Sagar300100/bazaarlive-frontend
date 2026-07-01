@@ -1,0 +1,133 @@
+rules_version = '2';
+
+// Any & All — Firestore security rules
+// ──────────────────────────────────────────────────────────────
+// Design principles:
+//   1. Server-only writes for anything that grants privilege or trust
+//      (users/*, usernames/*, isSeller/*, KYC fields). The functions/api
+//      Cloud Function uses the Admin SDK which bypasses these rules.
+//   2. Owner-only writes for content people OWN (their shows, their
+//      follow relationships, their DM threads).
+//   3. Public reads for content that should be browsable (shows list,
+//      username availability, products/auctions surfaces).
+//   4. Default deny for anything not explicitly matched — new collections
+//      cannot be silently created from the client.
+// ──────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── HELPERS ─────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ── SHOWS ───────────────────────────────────────────────
+    // Publicly listable (buyer browse). Only the owner (as stamped on
+    // create) can update or delete. ownerUid is immutable after create.
+    match /shows/{showId} {
+      allow read: if true;
+
+      allow create: if isSignedIn()
+                    && request.resource.data.ownerUid == request.auth.uid;
+
+      allow update: if isSignedIn()
+                    && resource.data.ownerUid == request.auth.uid
+                    // ownerUid cannot be changed on update
+                    && request.resource.data.ownerUid == resource.data.ownerUid;
+
+      allow delete: if isSignedIn()
+                    && resource.data.ownerUid == request.auth.uid;
+
+      // Live chat under a show — signed-in users may read + send their
+      // own messages. Message edits/deletes are server-only (moderation).
+      match /chat/{msgId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn()
+                      && request.resource.data.uid == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    // ── USERS ───────────────────────────────────────────────
+    // Owner-only read. All writes go through the server (Admin SDK
+    // bypasses these rules). This prevents a client from flipping
+    // isSeller, aadhaarVerified, panVerified, sellerOnboarding.*,
+    // or referralCode from the browser.
+    match /users/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;
+    }
+
+    // ── USERNAMES ───────────────────────────────────────────
+    // Publicly readable so availability checks can run before signup.
+    // Only the server may write — the atomic reservation lives in
+    // /api/profile/claim-username and /api/profile/seller-onboarding/store.
+    match /usernames/{handle} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ── FOLLOWS ─────────────────────────────────────────────
+    // Doc id pattern: {followerUid}_{targetHandle}. The follower can
+    // create + delete only their own relationship rows. No updates —
+    // switching who you follow means delete + create.
+    match /follows/{followId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.followerId == request.auth.uid;
+      allow delete: if isSignedIn()
+                    && resource.data.followerId == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ── DIRECT MESSAGES ─────────────────────────────────────
+    // Current DM flow uses username-based thread IDs; the sender only
+    // knows their own uid, not the other party's, so we cannot yet
+    // require ≥2 participants at create time. Rules today:
+    //
+    //   1. Any signed-in user can read/write. Thread IDs are unguessable
+    //      without knowing both usernames, which is a soft privacy check.
+    //   2. Every message must be stamped with senderId == request.auth.uid
+    //      so impersonation is impossible.
+    //   3. Parent doc creates freely so first-time threads bootstrap; the
+    //      participants array grows as each side sends.
+    //
+    // TODO(security): once DM UI resolves both parties' uids up-front,
+    // switch to strict participant-only read/write and enforce that
+    // `senderId` is in the parent's participants array.
+    match /dm/{threadId} {
+      allow read, write: if isSignedIn();
+
+      match /messages/{msgId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn()
+                      && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    // ── PRODUCTS + AUCTIONS ─────────────────────────────────
+    // Backend endpoints for /api/products, /api/orders, /api/auctions are
+    // not implemented yet (audit item M4). Until they are, deny direct
+    // client writes so nobody can plant fake products/bids. Public read
+    // stays open so listing surfaces work.
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /auctions/{auctionId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ── DEFAULT DENY ────────────────────────────────────────
+    // Any collection not explicitly matched above is server-only.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
