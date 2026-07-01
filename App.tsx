@@ -322,15 +322,36 @@ const App: React.FC = () => {
     return "home";
   });
 
-  // Browser back/forward (popstate) must resync currentPage from the URL.
-  // Without this, history.pushState in navigate() changes the URL but the
-  // rendered page doesn't follow when the user hits the browser back arrow.
+  // Seed the initial history entry with the current page so browser back
+  // has somewhere to go inside the app instead of leaving the site.
+  // Without this, opening a Sign-up modal + navigating to "Switch to
+  // Selling" left no in-app history — browser back would exit to whatever
+  // tab was before anynall.com (e.g. MSN new tab).
   useEffect(() => {
-    const onPop = () => {
+    try {
+      window.history.replaceState({ appPage: currentPage }, "", window.location.pathname);
+    } catch (e) {
+      console.error("initial history.replaceState failed", e);
+    }
+    // ONLY run once at mount — do NOT re-run on currentPage change (navigate
+    // handles its own pushState).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Browser back/forward (popstate) must resync currentPage.
+  // Priority: read the page we stashed in history.state; fall back to the
+  // URL pathname parse (for legal pages that own their own URLs).
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      const stashed = (e.state && typeof e.state === "object") ? (e.state as any).appPage : undefined;
+      if (typeof stashed === "string" && stashed.length > 0) {
+        setCurrentPage(stashed);
+        return;
+      }
       const path = window.location.pathname.replace(/^\/+/, "").split("/")[0];
       if ((LEGAL_PAGE_KEYS as string[]).includes(path)) {
         setCurrentPage(path);
-      } else if (!path) {
+      } else {
         setCurrentPage("home");
       }
     };
@@ -568,8 +589,12 @@ const App: React.FC = () => {
     if (isReset && secret) setResetParams({ userId, secret });
 
     try {
-      if (window.location.hash) window.history.replaceState(null, "", "/#/");
-      else window.history.replaceState(null, "", "/");
+      // Preserve the appPage stamp our initial-mount effect wrote — the
+      // popstate handler relies on it to bring the user back home when
+      // they hit the browser back arrow from any internal page.
+      const preserved = { appPage: (history.state && (history.state as any).appPage) || "home" };
+      if (window.location.hash) window.history.replaceState(preserved, "", "/#/");
+      else window.history.replaceState(preserved, "", "/");
     } catch (e) {
       console.error("history.replaceState failed", e);
     }
@@ -601,19 +626,32 @@ const App: React.FC = () => {
       navStack.current.push(currentPage);
     }
     setCurrentPage(page);
-    // Sync URL for legal pages so a refresh / external share works. For
-    // every other page we keep the root URL — the SPA's state-driven
-    // navigation doesn't need it and it'd confuse the existing intent
-    // handling (verify-email, reset-password etc.).
-    if ((LEGAL_PAGE_KEYS as string[]).includes(page)) {
-      const target = `/${page}`;
-      if (window.location.pathname !== target) {
-        window.history.pushState({}, "", target);
+
+    // Sync browser history so back button stays inside the app.
+    // Every internal navigation pushes an entry stashing the target page
+    // in state. This fixes the "back button jumps to the previous tab"
+    // bug that hit users clicking Switch to Selling for the first time —
+    // there was no in-app history entry to pop, so the browser navigated
+    // out of the site.
+    //
+    // Legal pages keep their own URLs so refresh / external share works.
+    // Everything else navigates at the root URL "/" — the SPA is
+    // state-driven and it'd confuse the intent-URL handling for
+    // verify-email / reset-password.
+    try {
+      if ((LEGAL_PAGE_KEYS as string[]).includes(page)) {
+        const target = `/${page}`;
+        window.history.pushState({ appPage: page }, "", target);
+      } else {
+        const currentPath = window.location.pathname.replace(/^\/+/, "");
+        // If we were on a legal URL, restore root; otherwise just push at "/"
+        const url = (LEGAL_PAGE_KEYS as string[]).includes(currentPath) ? "/" : window.location.pathname || "/";
+        window.history.pushState({ appPage: page }, "", url);
       }
-    } else if ((LEGAL_PAGE_KEYS as string[]).includes(window.location.pathname.replace(/^\/+/, ""))) {
-      // Navigating away from a legal page — restore root.
-      window.history.pushState({}, "", "/");
+    } catch (e) {
+      console.error("navigate history.pushState failed", e);
     }
+
     window.scrollTo(0, 0);
   };
 

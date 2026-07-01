@@ -373,13 +373,15 @@ const Field: React.FC<{
     <div style={{ marginBottom: 14 }}>
       <div style={{ position: "relative" }}>
         <Icon
-          size={16}
+          size={18}
+          strokeWidth={1.8}
           style={{
             position: "absolute",
-            left: 16, top: "50%",
+            left: 18, top: "50%",
             transform: "translateY(-50%)",
-            color: error ? T.liveRed : T.mistSoft,
+            color: error ? T.liveRed : T.blueGlow,
             pointerEvents: "none",
+            filter: "drop-shadow(0 0 6px rgba(74,143,229,0.35))",
           }}
         />
         <input
@@ -390,7 +392,7 @@ const Field: React.FC<{
           autoComplete="off"
           style={{
             width: "100%",
-            padding: `14px ${password ? 46 : 14}px 14px 44px`,
+            padding: `14px ${password ? 46 : 14}px 14px 50px`,
             borderRadius: 14,
             border: `1px solid ${error ? T.liveRed : T.hairline}`,
             background: T.bgInput,
