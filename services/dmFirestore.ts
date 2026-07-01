@@ -18,47 +18,45 @@ export type DmMessage = {
   createdAt: any;
 };
 
-// Deterministic thread ID for two users. Uses lowercased usernames so
-// legacy threads keep working; new threads also embed the participant
-// UIDs on the parent doc so firestore.rules can gate reads/writes.
+// Deterministic thread ID for two users. Keeps lowercased-username layout
+// so the ID is stable and shareable across sessions; the participant UIDs
+// still live on the parent doc for rules to enforce access.
 export function getThreadId(userA: string, userB: string) {
   const [a, b] = [userA.toLowerCase(), userB.toLowerCase()].sort();
   return `${a}__${b}`;
 }
 
-/**
- * Ensure the dm/{threadId} parent doc exists and carries the current
- * signed-in user's uid in its `participants` array. Called before every
- * send so a first-time thread gets bootstrapped correctly.
- *
- * If the parent already exists but doesn't list this uid, we add it —
- * lets the OTHER side of the conversation ping into an existing thread
- * that was created before rules landed.
- */
-async function ensureThread(threadId: string, myUid: string, otherLabel: string) {
+// Resolve a username to its uid via the public /usernames collection.
+// Returns null for missing/invalid/unclaimed handles. Used before creating
+// a DM thread so the parent doc can carry BOTH participant uids at birth.
+async function lookupUidByUsername(username: string): Promise<string | null> {
+  const clean = username.trim().toLowerCase();
+  if (!clean) return null;
+  try {
+    const snap = await getDoc(doc(db, "usernames", clean));
+    if (!snap.exists()) return null;
+    const data = snap.data() as any;
+    return typeof data?.uid === "string" ? data.uid : null;
+  } catch {
+    return null;
+  }
+}
+
+// Create the dm/{threadId} parent doc with BOTH participant uids so
+// firestore.rules can gate every subsequent read/write to only the two
+// members. Idempotent — no-op if the doc already exists.
+//
+// Per rules, parent doc creation requires participants.size() == 2 and
+// includes the caller. Once created it's immutable — this closes the
+// earlier hole where any signed-in user could rewrite participants.
+async function ensureThread(threadId: string, myUid: string, otherUid: string) {
   const ref = doc(db, "dm", threadId);
   const snap = await getDoc(ref);
-  if (!snap.exists()) {
-    await setDoc(ref, {
-      participants: [myUid],           // updates as the other side joins
-      participantLabels: [otherLabel], // for display; not used by rules
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-    return;
-  }
-  const data = snap.data() as any;
-  const participants: string[] = Array.isArray(data.participants) ? data.participants : [];
-  if (!participants.includes(myUid)) {
-    await setDoc(
-      ref,
-      {
-        participants: [...participants, myUid],
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-  }
+  if (snap.exists()) return;
+  await setDoc(ref, {
+    participants: [myUid, otherUid].sort(),
+    createdAt: serverTimestamp(),
+  });
 }
 
 export function subscribeDm(
@@ -76,15 +74,23 @@ export function subscribeDm(
 }
 
 export async function sendDm(
-  userA: string,
-  userB: string,
+  myUsername: string,
+  otherUsername: string,
   payload: { sender: string; text: string }
 ) {
   const u = auth.currentUser;
   if (!u) throw new Error("Sign in to send messages");
 
-  const threadId = getThreadId(userA, userB);
-  await ensureThread(threadId, u.uid, userA === payload.sender ? userB : userA);
+  const otherUid = await lookupUidByUsername(otherUsername);
+  if (!otherUid) {
+    throw new Error(`Can't reach @${otherUsername} — user not found.`);
+  }
+  if (otherUid === u.uid) {
+    throw new Error("Cannot DM yourself.");
+  }
+
+  const threadId = getThreadId(myUsername, otherUsername);
+  await ensureThread(threadId, u.uid, otherUid);
 
   const colRef = collection(db, "dm", threadId, "messages");
   await addDoc(colRef, {

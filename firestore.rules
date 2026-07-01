@@ -28,11 +28,15 @@ service cloud.firestore {
     // ── SHOWS ───────────────────────────────────────────────
     // Publicly listable (buyer browse). Only the owner (as stamped on
     // create) can update or delete. ownerUid is immutable after create.
+    // Create requires the caller to be an onboarded seller — prevents a
+    // signed-in-but-not-onboarded account from planting shows via a
+    // crafted request that bypasses the UI seller-gate.
     match /shows/{showId} {
       allow read: if true;
 
       allow create: if isSignedIn()
-                    && request.resource.data.ownerUid == request.auth.uid;
+                    && request.resource.data.ownerUid == request.auth.uid
+                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSeller == true;
 
       allow update: if isSignedIn()
                     && resource.data.ownerUid == request.auth.uid
@@ -85,26 +89,48 @@ service cloud.firestore {
     }
 
     // ── DIRECT MESSAGES ─────────────────────────────────────
-    // Current DM flow uses username-based thread IDs; the sender only
-    // knows their own uid, not the other party's, so we cannot yet
-    // require ≥2 participants at create time. Rules today:
+    // Strict participant-only access. Fixes the earlier hole where any
+    // signed-in user could read another pair's messages by guessing the
+    // thread ID (usernames are semi-public via /usernames/*).
     //
-    //   1. Any signed-in user can read/write. Thread IDs are unguessable
-    //      without knowing both usernames, which is a soft privacy check.
-    //   2. Every message must be stamped with senderId == request.auth.uid
-    //      so impersonation is impossible.
-    //   3. Parent doc creates freely so first-time threads bootstrap; the
-    //      participants array grows as each side sends.
+    // Model:
+    //   - `dm/{threadId}` parent doc carries `participants: [uidA, uidB]`
+    //     set at create time. Exactly 2 uids, one MUST be the caller.
+    //     Immutable after create — no updates, no deletes.
+    //   - `dm/{threadId}/messages/*` — read/create restricted to whoever
+    //     appears in the parent's participants array. Message writes
+    //     still enforce `senderId == request.auth.uid` so impersonation
+    //     is impossible.
     //
-    // TODO(security): once DM UI resolves both parties' uids up-front,
-    // switch to strict participant-only read/write and enforce that
-    // `senderId` is in the parent's participants array.
+    // Client migration note: sendDm() must look up the recipient's uid
+    // (from /usernames/{handle}) before creating the parent doc so that
+    // both uids are known and stored at create time.
     match /dm/{threadId} {
-      allow read, write: if isSignedIn();
+      function isParticipant() {
+        return isSignedIn()
+            && request.auth.uid in resource.data.participants;
+      }
+
+      allow read: if isParticipant();
+
+      allow create: if isSignedIn()
+                    && request.resource.data.participants is list
+                    && request.resource.data.participants.size() == 2
+                    && request.auth.uid in request.resource.data.participants;
+
+      // Parent doc is immutable once created — prevents an attacker
+      // from tacking themselves onto an existing pair's thread.
+      allow update, delete: if false;
 
       match /messages/{msgId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn()
+        function isThreadMember() {
+          return isSignedIn()
+              && request.auth.uid in
+                 get(/databases/$(database)/documents/dm/$(threadId)).data.participants;
+        }
+
+        allow read: if isThreadMember();
+        allow create: if isThreadMember()
                       && request.resource.data.senderId == request.auth.uid;
         allow update, delete: if false;
       }
