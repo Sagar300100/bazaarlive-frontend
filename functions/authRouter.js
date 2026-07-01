@@ -22,6 +22,7 @@
 import express from "express";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 import { logAudit } from "./auditLog.js";
+import { requireRecentAuth } from "./recentAuthGuard.js";
 
 const router = express.Router();
 
@@ -66,7 +67,10 @@ router.get("/me", authGuard, (req, res) => {
 });
 
 // POST /api/auth/revoke-sessions
-router.post("/revoke-sessions", authGuard, async (req, res) => {
+// Gated behind requireRecentAuth: if a session is compromised, an attacker
+// who reads the cached ID token from a stale tab still can't self-lock the
+// legitimate user out without a fresh password prompt.
+router.post("/revoke-sessions", authGuard, requireRecentAuth(), async (req, res) => {
   try {
     const admin = firebaseAdmin();
     await admin.auth().revokeRefreshTokens(req.user.uid);

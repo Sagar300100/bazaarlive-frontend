@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import {
   getAuth,
   setPersistence,
-  browserSessionPersistence,
+  browserLocalPersistence,
   signOut,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -70,19 +70,14 @@ if (typeof window !== "undefined") {
 // Auth
 export const auth = getAuth(app);
 
-// Clear any stale tokens saved by the old browserLocalPersistence setting.
-// Without this, Firebase reads the old localStorage entry and auto-logs the user in
-// even though we've switched to session-only persistence.
-try {
-  Object.keys(localStorage)
-    .filter((k) => k.startsWith("firebase:authUser:") || k.startsWith("firebase:"))
-    .forEach((k) => localStorage.removeItem(k));
-} catch {
-  // ignore — localStorage may be unavailable in some environments
-}
-
-setPersistence(auth, browserSessionPersistence).catch(() => {
-  // ignore persistence errors in dev
+// Local persistence: users stay signed in across browser closes until they
+// explicitly sign out or their refresh token is revoked server-side (see
+// POST /api/auth/revoke-sessions). Standard for consumer marketplaces —
+// Amazon/Flipkart/Meesho all do this. Sensitive actions (payouts, bank
+// account changes) are gated separately by the server-side requireRecentAuth
+// middleware, which forces a password re-entry if the ID token is stale.
+setPersistence(auth, browserLocalPersistence).catch(() => {
+  // ignore persistence errors in dev (private browsing, storage blocked)
 });
 
 // Firestore
