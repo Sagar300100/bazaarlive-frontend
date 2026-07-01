@@ -1,6 +1,4 @@
 import express from "express";
-import fs from "fs";
-import path from "path";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 
 const router = express.Router();
@@ -16,46 +14,65 @@ const RESERVED_USERNAMES = new Set([
   "team", "moderator", "mod", "root", "system", "api", "www", "mail", "email",
   "shop", "seller", "buyer", "auction", "live", "show", "shows",
 ]);
-const DATA_PATH = path.join(process.cwd(), "server", "profiles.json");
 const REFERRAL_BASE = process.env.REFERRAL_BASE || "https://anynall.com/invite";
 
-function readProfiles() {
-  try {
-    const raw = fs.readFileSync(DATA_PATH, "utf-8");
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-}
-
-function writeProfiles(profiles) {
-  try {
-    fs.mkdirSync(path.dirname(DATA_PATH), { recursive: true });
-    fs.writeFileSync(DATA_PATH, JSON.stringify(profiles, null, 2));
-  } catch (err) {
-    console.error("[profile] write error", err);
-  }
-}
+// Profile shape (nested under users/{uid}.profile.*):
+//   handle : display name shown on shows/products  (was top-level, moved
+//            under `profile` so it doesn't collide with sellerOnboarding.storeHandle)
+//   bio    : short seller-facing description
+//   avatar : url string (empty until upload is implemented)
+// Top-level on users/{uid}:
+//   username     : URL-safe handle (claimed atomically via /claim-username)
+//   referralCode : lazy-generated on first read
+//
+// Previous rev used fs.writeFileSync on server/profiles.json — this crashes
+// in Cloud Functions because the filesystem is read-only outside /tmp.
 
 function generateReferralCode(uid) {
   const rand = Math.random().toString(36).slice(2, 8);
-  const suffix = uid ? uid.toString().slice(-4) : "";
+  const suffix = uid ? String(uid).slice(-4) : "";
   return `${rand}${suffix}`;
 }
 
-function ensureProfile(profiles, userId) {
-  if (!profiles[userId]) {
-    profiles[userId] = {
-      username: "yourshop",
-      handle: "Your Name",
-      bio: "Tell buyers what you sell and why they should follow.",
-      avatar: "",
-      referralCode: generateReferralCode(userId),
-    };
-  } else if (!profiles[userId].referralCode) {
-    profiles[userId].referralCode = generateReferralCode(userId);
+const DEFAULT_PROFILE = Object.freeze({
+  handle: "Your Name",
+  bio: "Tell buyers what you sell and why they should follow.",
+  avatar: "",
+});
+
+/**
+ * Read (and lazily seed) the user's profile.
+ * Returns { username, handle, bio, avatar, referralCode } — all strings.
+ * If the user document doesn't exist yet, we create it with defaults.
+ * If referralCode is missing, we generate + persist one on the fly.
+ */
+async function readOrSeedProfile(uid) {
+  const admin = firebaseAdmin();
+  const db = admin.firestore();
+  const ref = db.doc(`users/${uid}`);
+  const snap = await ref.get();
+  const data = snap.data() || {};
+
+  const nested = data.profile || {};
+  let referralCode = data.referralCode;
+
+  // Lazy referral-code generation: only touch Firestore if we actually
+  // need to create one (keeps reads cheap on the hot path).
+  if (!referralCode) {
+    referralCode = generateReferralCode(uid);
+    await ref.set(
+      { referralCode, referralCreatedAt: admin.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
   }
-  return profiles[userId];
+
+  return {
+    username: data.username || "yourshop",
+    handle: nested.handle || DEFAULT_PROFILE.handle,
+    bio: nested.bio ?? DEFAULT_PROFILE.bio,
+    avatar: nested.avatar || DEFAULT_PROFILE.avatar,
+    referralCode,
+  };
 }
 
 async function authGuard(req, res, next) {
@@ -146,30 +163,51 @@ router.post("/claim-username", authGuard, async (req, res) => {
   }
 });
 
-// GET /api/profile
-router.get("/", authGuard, (_req, res) => {
-  const profiles = readProfiles();
-  const profile = ensureProfile(profiles, _req.user.uid);
-  writeProfiles(profiles);
-  res.json(profile);
+// GET /api/profile — reads (and lazily seeds) the caller's profile
+router.get("/", authGuard, async (req, res) => {
+  try {
+    const profile = await readOrSeedProfile(req.user.uid);
+    return res.json(profile);
+  } catch (err) {
+    console.error("[profile] GET / failed", err?.message || err);
+    return res.status(500).json({ error: "READ_FAILED" });
+  }
 });
 
-// PUT /api/profile
-router.put("/", authGuard, (req, res) => {
-  const { username, handle, bio } = req.body || {};
-  if (!username || !handle) {
-    return res.status(400).json({ error: "USERNAME_AND_HANDLE_REQUIRED" });
+// PUT /api/profile — updates the caller's display fields.
+// NOTE: `username` (the URL-safe handle) is intentionally NOT mutable here.
+// Renaming a username requires an atomic reservation, which /claim-username
+// already implements. This endpoint accepts and ignores a `username` field
+// in the body for backward-compat with older clients.
+router.put("/", authGuard, async (req, res) => {
+  const { handle, bio, avatar } = req.body || {};
+  if (!handle || typeof handle !== "string") {
+    return res.status(400).json({ error: "HANDLE_REQUIRED" });
   }
-  const profiles = readProfiles();
-  const current = ensureProfile(profiles, req.user.uid);
-  profiles[req.user.uid] = {
-    ...current,
-    username,
-    handle,
-    bio: bio ?? "",
-  };
-  writeProfiles(profiles);
-  res.json(profiles[req.user.uid]);
+  const cleanHandle = handle.trim().slice(0, 60);
+  const cleanBio = typeof bio === "string" ? bio.trim().slice(0, 280) : "";
+  const cleanAvatar = typeof avatar === "string" ? avatar.trim().slice(0, 500) : "";
+
+  try {
+    const admin = firebaseAdmin();
+    const db = admin.firestore();
+    await db.doc(`users/${req.user.uid}`).set(
+      {
+        profile: {
+          handle: cleanHandle,
+          bio: cleanBio,
+          avatar: cleanAvatar,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      },
+      { merge: true }
+    );
+    const merged = await readOrSeedProfile(req.user.uid);
+    return res.json(merged);
+  } catch (err) {
+    console.error("[profile] PUT / failed", err?.message || err);
+    return res.status(500).json({ error: "WRITE_FAILED" });
+  }
 });
 
 // Defensive read: prefer nested `sellerOnboarding.xxx` (correct), fall back
@@ -311,13 +349,16 @@ router.post("/seller-onboarding/complete", authGuard, async (req, res) => {
   }
 });
 
-// GET /api/referral -> returns code + share link, creates one if missing
-router.get("/referral", authGuard, (req, res) => {
-  const profiles = readProfiles();
-  const profile = ensureProfile(profiles, req.user.uid);
-  writeProfiles(profiles);
-  const link = `${REFERRAL_BASE.replace(/\/$/, "")}?ref=${profile.referralCode}`;
-  res.json({ code: profile.referralCode, link });
+// GET /api/profile/referral — returns { code, link }; lazily creates the code
+router.get("/referral", authGuard, async (req, res) => {
+  try {
+    const profile = await readOrSeedProfile(req.user.uid);
+    const link = `${REFERRAL_BASE.replace(/\/$/, "")}?ref=${profile.referralCode}`;
+    return res.json({ code: profile.referralCode, link });
+  } catch (err) {
+    console.error("[profile] GET /referral failed", err?.message || err);
+    return res.status(500).json({ error: "REFERRAL_READ_FAILED" });
+  }
 });
 
 export default router;
