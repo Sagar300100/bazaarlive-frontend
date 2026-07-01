@@ -446,23 +446,15 @@ export async function createRazorpayOrder(params: {
   currency?: string;
   notes?: Record<string, any>;
 }) {
-  // Try backend first (production path — backend creates order with secret key)
-  try {
-    return await j<any>("/api/payments/create-order", {
-      method: "POST",
-      body: JSON.stringify(params),
-    });
-  } catch {
-    // Fallback: client-side order stub (works for test mode without backend)
-    // In production, always ensure backend is running for proper order creation
-    console.warn("Backend order creation failed — using client-side fallback (test mode only)");
-    return {
-      id:       `order_${Date.now()}`,
-      amount:   params.amount,
-      currency: params.currency || "INR",
-      status:   "created",
-    };
-  }
+  // Order creation MUST happen server-side using the Razorpay secret key.
+  // Any client-side "order" is a lie — Razorpay will reject a checkout
+  // that was never actually registered with them. The previous fallback
+  // returned a fake `order_${Date.now()}` which let the flow appear to
+  // succeed but produced no real payment record.
+  return await j<any>("/api/payments/create-order", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
 }
 
 export async function verifyRazorpayPayment(params: {
@@ -501,7 +493,11 @@ export async function getRazorpayKey(): Promise<{ key: string }> {
   return { key: (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || "" };
 }
 
-/** UPI Collect (dev-safe) */
+/** UPI Collect — server-side only. No dev-mock fallback: a fake
+ *  `dev-order` / `demo@upi` is worse than a clean failure because the
+ *  UI would tell the buyer their UPI collect is pending when no
+ *  real request was ever sent to their bank.
+ */
 export async function startUpiCollect(
   amountPaise: number,
   note: string = "Payment"
@@ -511,25 +507,19 @@ export async function startUpiCollect(
   vpa?: string;
 }> {
   const url = `${BASE}/api/payments/upi-collect`;
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(await authHeaders()),
-      },
-      credentials: "include",
-      body: JSON.stringify({ amount: amountPaise, note }),
-    });
-    if (res.ok) return await res.json();
-  } catch (err) {
-    console.error("startUpiCollect failed:", err);
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(await authHeaders()),
+    },
+    credentials: "include",
+    body: JSON.stringify({ amount: amountPaise, note }),
+  });
+  if (!res.ok) {
+    throw new Error(`UPI collect failed (HTTP ${res.status})`);
   }
-  return {
-    requestId: "dev-mock-request",
-    order: { id: "dev-order", amount: amountPaise, currency: "INR" },
-    vpa: localStorage.getItem("my_upi") ?? "demo@upi",
-  };
+  return await res.json();
 }
 
 // ---------- Payments signature verification ----------
@@ -539,31 +529,33 @@ export interface VerifyPaymentParams {
   razorpay_signature: string;
 }
 
-/** POST to backend to verify the Razorpay signature */
+/** POST to backend to verify the Razorpay HMAC signature.
+ *
+ * MUST fail closed: an unverified payment is NOT a paid payment. The
+ * previous "trust pay_* prefix" fallback let an attacker forge any
+ * payment_id starting with `pay_` and have the frontend treat it as
+ * paid — because Razorpay never signed off on it, no money moved, but
+ * the app happily marked the order as verified.
+ */
 export async function verifyPaymentSignature(
   params: VerifyPaymentParams
 ): Promise<{ verified: boolean }> {
   const url = `${BASE}/api/payments/verify`;
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(await authHeaders()),
-      },
-      credentials: "include",
-      body: JSON.stringify(params),
-    });
-    if (res.ok) return await res.json();
-  } catch {
-    // Backend unavailable — trust Razorpay payment_id as confirmation (test mode only)
-    // In production, ALWAYS verify on backend using secret key
-    if (params.razorpay_payment_id?.startsWith('pay_')) {
-      console.warn("Signature verification skipped — backend unavailable (test mode)");
-      return { verified: true };
-    }
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(await authHeaders()),
+    },
+    credentials: "include",
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    // Any failure = unverified. Do not trust the payment_id shape.
+    return { verified: false };
   }
-  return { verified: false };
+  const data = await res.json().catch(() => ({}));
+  return { verified: !!data?.verified };
 }
 
 // ---------- Streaming (100ms) ----------
