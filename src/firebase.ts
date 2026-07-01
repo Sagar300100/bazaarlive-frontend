@@ -7,6 +7,7 @@ import {
   signOut,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 // ----------------------------------------------------
 // Firebase config from Vite env (.env.local)
@@ -26,6 +27,45 @@ export const firebaseConfig = {
 // Core Firebase singletons
 // ----------------------------------------------------
 export const app = initializeApp(firebaseConfig);
+
+// ----------------------------------------------------
+// App Check (reCAPTCHA v3)
+// ----------------------------------------------------
+// Attaches a Firebase App Check attestation token to every Firestore /
+// Auth / Cloud Function request from a real browser session, so the
+// backend can distinguish real users from scripted clients. Enforcement
+// is a Console-side toggle — this init just makes tokens *available*.
+//
+// In dev, set FIREBASE_APPCHECK_DEBUG_TOKEN to a boolean before init to
+// generate a debug token you can whitelist in Firebase Console → App
+// Check → Debug tokens. Without it, App Check would block localhost.
+if (typeof window !== "undefined") {
+  const siteKey = import.meta.env.VITE_APP_CHECK_SITE_KEY as string | undefined;
+
+  // Dev-only debug token generator — has no effect in production because
+  // `import.meta.env.DEV` is stripped by Vite at build time.
+  if (import.meta.env.DEV) {
+    (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  }
+
+  if (siteKey) {
+    try {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(siteKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+    } catch (err) {
+      // Init can throw if hot-reload double-initializes; log but don't crash.
+      console.warn("[appcheck] init failed:", (err as any)?.message || err);
+    }
+  } else if (import.meta.env.PROD) {
+    // Fail loud in prod if the key isn't wired — App Check silently
+    // absent is exactly the class of miss we want to catch.
+    console.error(
+      "[appcheck] VITE_APP_CHECK_SITE_KEY is not set. App Check tokens will NOT be attached to backend requests."
+    );
+  }
+}
 
 // Auth
 export const auth = getAuth(app);

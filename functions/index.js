@@ -16,6 +16,7 @@ import profileRouter from "./profileRouter.js";
 import digilockerRouter from "./digilockerRouter.js";
 import bankRouter from "./bankRouter.js";
 import panRouter from "./panRouter.js";
+import { firebaseAdmin } from "./firebaseAdmin.js";
 
 // Secrets must be declared so Firebase injects them into the runtime env.
 const sandboxApiKey = defineSecret("SANDBOX_API_KEY");
@@ -47,6 +48,52 @@ app.use(
     legacyHeaders: false,
   })
 );
+
+/* ── App Check ──────────────────────────────────────────────────
+   Mode is controlled by env var APP_CHECK_MODE:
+
+     "off"        — skip verification entirely (rollback lever if the
+                    client stops sending valid tokens).
+     "monitor"    — verify every token, log misses/failures, but
+                    always call next(). Default. Use while rolling out
+                    so we can see traffic in the Console without
+                    breaking real users.
+     "enforce"    — reject requests with missing or invalid tokens
+                    with HTTP 401. Flip once monitor logs look clean.
+
+   Health checks (/health, /api/health) always bypass App Check so
+   uptime probes work regardless of mode.
+*/
+const APP_CHECK_MODE = (process.env.APP_CHECK_MODE || "monitor").toLowerCase();
+
+async function appCheckGuard(req, res, next) {
+  // Uptime probes shouldn't need attestation.
+  if (req.path === "/health" || req.path === "/api/health") return next();
+  if (APP_CHECK_MODE === "off") return next();
+
+  const token = req.header("X-Firebase-AppCheck");
+
+  if (!token) {
+    if (APP_CHECK_MODE === "enforce") {
+      return res.status(401).json({ error: "APP_CHECK_REQUIRED" });
+    }
+    console.warn(`[appcheck] missing token on ${req.method} ${req.path}`);
+    return next();
+  }
+
+  try {
+    await firebaseAdmin().appCheck().verifyToken(token);
+    return next();
+  } catch (err) {
+    if (APP_CHECK_MODE === "enforce") {
+      console.warn(`[appcheck] rejected ${req.method} ${req.path}: ${err?.message || err}`);
+      return res.status(401).json({ error: "APP_CHECK_INVALID" });
+    }
+    console.warn(`[appcheck] invalid token on ${req.method} ${req.path}: ${err?.message || err}`);
+    return next();
+  }
+}
+app.use(appCheckGuard);
 
 /* ── Routes ──
    /api prefix matches frontend calls: ${BASE}/api/aadhaar, etc.
