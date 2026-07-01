@@ -124,6 +124,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── AUDIT LOG ───────────────────────────────────────────
+    // Server-only. Admin SDK bypasses rules; explicit deny here is
+    // defence-in-depth so a client can't read/write the log if we
+    // ever loosen the default rule below by mistake.
+    match /auditLog/{entryId} {
+      allow read, write: if false;
+    }
+
     // ── DEFAULT DENY ────────────────────────────────────────
     // Any collection not explicitly matched above is server-only.
     match /{document=**} {

@@ -3,6 +3,7 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import axios from "axios";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 import { encryptField } from "./kms.js";
+import { logAudit } from "./auditLog.js";
 
 const router = express.Router();
 
@@ -278,6 +279,8 @@ router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
     } catch (err) {
       console.error("[pan] firestore persist failed", err?.message || err);
     }
+
+    logAudit(req, "pan_verified", { maskedPan: maskPan(pan) });
 
     return res.json({
       verified: true,

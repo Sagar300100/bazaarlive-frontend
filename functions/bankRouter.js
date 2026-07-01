@@ -267,6 +267,8 @@ router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
       console.error("[bank] firestore persist failed", err?.message || err);
     }
 
+    logAudit(req, "bank_verified", { maskedAccount: maskAccount(accountNumber), ifsc });
+
     return res.json({
       verified: true,
       bankName,

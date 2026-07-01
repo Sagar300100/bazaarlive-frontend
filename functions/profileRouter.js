@@ -1,5 +1,6 @@
 import express from "express";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
+import { logAudit } from "./auditLog.js";
 
 const router = express.Router();
 
@@ -342,6 +343,9 @@ router.post("/seller-onboarding/complete", authGuard, async (req, res) => {
       },
       { merge: true }
     );
+    logAudit(req, "seller_onboarded", {
+      storeHandle: readSo(data, "storeHandle") || null,
+    });
     return res.json({ ok: true });
   } catch (err) {
     console.error("[profile] seller-onboarding/complete failed", err?.message || err);
