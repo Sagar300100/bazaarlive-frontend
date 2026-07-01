@@ -24,6 +24,14 @@ const sandboxApiSecret = defineSecret("SANDBOX_API_SECRET");
 
 const app = express();
 
+/* ── Trust proxy ──────────────────────────────────────────────
+   Cloud Run puts our function behind exactly one proxy hop (the Google
+   Front End). Trust that single hop so req.ip resolves to the real
+   client IP rather than the GFE. Also silences express-rate-limit's
+   `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` validation error which was
+   firing on every request. */
+app.set("trust proxy", 1);
+
 /* ── CORS ── */
 const corsOrigins = (process.env.CORS_ORIGINS || "")
   .split(",")
@@ -39,7 +47,15 @@ app.use(
 
 app.use(express.json({ limit: "1mb" }));
 
-/* ── Rate limiter ── */
+/* ── Rate limiters ──────────────────────────────────────────────
+   Two tiers:
+     - GLOBAL (IP-based): protects against unauthenticated abuse. Wide
+       window so it doesn't kick in on legitimate bursty use.
+     - PER-USER (uid-based): stops one compromised token or one buggy
+       client tab from burning the shared IP quota for everyone behind
+       the same NAT / VPN / office network. Applied after body parsing
+       but before routers so 401s from expired tokens still get counted.
+*/
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -48,6 +64,39 @@ app.use(
     legacyHeaders: false,
   })
 );
+
+/* Cheap uid extraction — decode (but do NOT verify) the JWT payload to
+ * get the user_id claim. If the token is invalid, we fall back to IP so
+ * the request still gets rate-limited. authGuard in each router runs
+ * afterwards and rejects the invalid token proper. */
+function keyFromAuthHeader(req) {
+  const raw = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  if (!raw) return null;
+  try {
+    const parts = raw.split(".");
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(
+      Buffer.from(parts[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")
+    );
+    return payload.user_id || payload.sub || payload.uid || null;
+  } catch {
+    return null;
+  }
+}
+
+const perUserLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 300,             // 5 req/sec average per uid, burst tolerated
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const uid = keyFromAuthHeader(req);
+    return uid ? `uid:${uid}` : `ip:${req.ip}`;
+  },
+  skip: (req) =>
+    req.path === "/health" || req.path === "/api/health",
+});
+app.use(perUserLimiter);
 
 /* ── App Check ──────────────────────────────────────────────────
    Mode is controlled by env var APP_CHECK_MODE:
