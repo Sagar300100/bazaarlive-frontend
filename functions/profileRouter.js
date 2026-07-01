@@ -1,7 +1,68 @@
 import express from "express";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 import { logAudit } from "./auditLog.js";
 import { requireEmailVerified } from "./emailVerifiedGuard.js";
+
+// ── Per-endpoint rate limiters ──────────────────────────────────
+// The Cloud Function has a global 300/min per-uid limiter (in index.js).
+// These stricter per-route limits protect specific hot paths that are
+// either expensive, one-shot, or destructive.
+//
+// keyGenerator uses ipKeyGenerator + authenticated uid so authenticated
+// abuse is capped per-account (not just per-IP) and unauthenticated abuse
+// still gets an IP-based cap.
+function keyByIpAndUid(req) {
+  return `${ipKeyGenerator(req)}:${req.user?.uid || "anon"}`;
+}
+
+// Username lookup is cheap but can be spammed to enumerate handles.
+const checkUsernameLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(req),
+});
+
+// Username claim is a one-time action per user. 5/hour is well above any
+// legitimate retry (typos, network flake) but stops squatting scripts.
+const claimUsernameLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: keyByIpAndUid,
+});
+
+// Profile updates (handle/bio/avatar).
+const profileUpdateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: keyByIpAndUid,
+});
+
+// Seller-onboarding step 1 (store setup). One-time in the happy path,
+// a few retries acceptable.
+const storeSetupLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: keyByIpAndUid,
+});
+
+// Seller-onboarding final commit. Strictest — this promotes the account to
+// seller and should only fire once when everything is verified.
+const sellerCompleteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: keyByIpAndUid,
+});
 
 const router = express.Router();
 
@@ -94,7 +155,7 @@ async function authGuard(req, res, next) {
 // GET /api/profile/check-username?u=foo
 // Public — used during signup before the user has an auth token.
 // Best-effort availability check; the atomic claim still happens server-side.
-router.get("/check-username", async (req, res) => {
+router.get("/check-username", checkUsernameLimiter, async (req, res) => {
   const raw = String(req.query?.u || "").toLowerCase().trim();
   if (!USERNAME_RE.test(raw)) {
     return res.json({ available: false, reason: "INVALID_FORMAT" });
@@ -115,7 +176,7 @@ router.get("/check-username", async (req, res) => {
 // POST /api/profile/claim-username  { username }
 // Authenticated. Atomically reserves the username in a Firestore transaction —
 // prevents two users from claiming the same handle in a race.
-router.post("/claim-username", authGuard, async (req, res) => {
+router.post("/claim-username", authGuard, claimUsernameLimiter, async (req, res) => {
   const raw = String(req.body?.username || "").toLowerCase().trim();
   if (!USERNAME_RE.test(raw)) {
     return res.status(400).json({
@@ -181,7 +242,7 @@ router.get("/", authGuard, async (req, res) => {
 // Renaming a username requires an atomic reservation, which /claim-username
 // already implements. This endpoint accepts and ignores a `username` field
 // in the body for backward-compat with older clients.
-router.put("/", authGuard, async (req, res) => {
+router.put("/", authGuard, profileUpdateLimiter, async (req, res) => {
   const { handle, bio, avatar } = req.body || {};
   if (!handle || typeof handle !== "string") {
     return res.status(400).json({ error: "HANDLE_REQUIRED" });
@@ -252,7 +313,7 @@ router.get("/seller-onboarding", authGuard, async (req, res) => {
 // POST /api/profile/seller-onboarding/store  { storeName, storeHandle }
 // Saves step 1 of the wizard. storeHandle is unique across sellers and
 // claimed via the same usernames/ collection used for buyer handles.
-router.post("/seller-onboarding/store", authGuard, requireEmailVerified, async (req, res) => {
+router.post("/seller-onboarding/store", authGuard, requireEmailVerified, storeSetupLimiter, async (req, res) => {
   const storeName = String(req.body?.storeName || "").trim();
   const storeHandle = String(req.body?.storeHandle || "").toLowerCase().trim();
 
@@ -316,7 +377,7 @@ router.post("/seller-onboarding/store", authGuard, requireEmailVerified, async (
 // POST /api/profile/seller-onboarding/complete
 // Final gate — only succeeds if all 3 prior steps are done. Marks the
 // seller as fully onboarded so the seller dashboard can let them in.
-router.post("/seller-onboarding/complete", authGuard, requireEmailVerified, async (req, res) => {
+router.post("/seller-onboarding/complete", authGuard, requireEmailVerified, sellerCompleteLimiter, async (req, res) => {
   const admin = firebaseAdmin();
   const db = admin.firestore();
   const userRef = db.doc(`users/${req.user.uid}`);

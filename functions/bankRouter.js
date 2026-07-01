@@ -175,14 +175,15 @@ router.post("/verify", authGuard, requireEmailVerified, verifyLimiter, async (re
       }
     );
 
-    // Log full response so we can see whether Sandbox actually moved ₹1
-    // (presence of utr + amount_deposited) or just did a name lookup.
+    // Log ONLY the response field names (keys). Never the values — the
+    // Sandbox response contains the full account number, holder name,
+    // and UTR, which would land in Cloud Logging (queryable by anyone
+    // with roles/logging.viewer). Field names alone tell us if Sandbox
+    // changed their schema, which is the only debugging need here.
     try {
       console.log(
         "[bank] verify response keys:",
-        JSON.stringify(Object.keys(resp?.data || {})),
-        "preview:",
-        JSON.stringify(resp?.data).slice(0, 800)
+        JSON.stringify(Object.keys(resp?.data || {}))
       );
     } catch {}
 

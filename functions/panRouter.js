@@ -188,14 +188,14 @@ router.post("/verify", authGuard, requireEmailVerified, verifyLimiter, async (re
       { headers, timeout: 12000 }
     );
 
-    // Log the raw response once so we can pin field names if Sandbox ever
-    // changes them.
+    // Log ONLY response field names (keys). Never values — the response
+    // includes the full PAN, holder name, and DOB which would leak into
+    // Cloud Logging. Keys alone let us pin Sandbox schema drift without
+    // exposing PII to anyone with roles/logging.viewer.
     try {
       console.log(
         "[pan] response keys:",
-        JSON.stringify(Object.keys(resp?.data || {})),
-        "preview:",
-        JSON.stringify(resp?.data).slice(0, 800)
+        JSON.stringify(Object.keys(resp?.data || {}))
       );
     } catch {}
 

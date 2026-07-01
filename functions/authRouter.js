@@ -20,9 +20,23 @@
 // ──────────────────────────────────────────────────────────────
 
 import express from "express";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 import { logAudit } from "./auditLog.js";
 import { requireRecentAuth } from "./recentAuthGuard.js";
+
+// Session revocation is a destructive, user-visible action. Cap it hard
+// per-uid so a compromised session can't be used to lock the legitimate
+// user out via repeated revocations while brute-forcing the recent-auth
+// prompt on the client. Combined with requireRecentAuth() this leaves no
+// meaningful attack surface.
+const revokeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `${ipKeyGenerator(req)}:${req.user?.uid || "anon"}`,
+});
 
 const router = express.Router();
 
@@ -70,7 +84,7 @@ router.get("/me", authGuard, (req, res) => {
 // Gated behind requireRecentAuth: if a session is compromised, an attacker
 // who reads the cached ID token from a stale tab still can't self-lock the
 // legitimate user out without a fresh password prompt.
-router.post("/revoke-sessions", authGuard, requireRecentAuth(), async (req, res) => {
+router.post("/revoke-sessions", authGuard, requireRecentAuth(), revokeLimiter, async (req, res) => {
   try {
     const admin = firebaseAdmin();
     await admin.auth().revokeRefreshTokens(req.user.uid);
