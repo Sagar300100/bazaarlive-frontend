@@ -2,6 +2,7 @@ import express from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import axios from "axios";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
+import { logAudit } from "./auditLog.js";
 
 const router = express.Router();
 
@@ -316,6 +317,12 @@ router.post("/verify-otp", authGuard, verifyOtpLimiter, async (req, res) => {
       // We don't fail the request — verification succeeded upstream. The user
       // can retry; persisting is a best-effort optimisation.
     }
+
+    logAudit(req, "aadhaar_verified", {
+      via: "otp",
+      maskedAadhaar: maskId(idNumber),
+      referenceId: String(inner?.reference_id ?? txnId),
+    });
 
     return res.json({
       verified: true,

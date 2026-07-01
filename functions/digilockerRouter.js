@@ -2,6 +2,7 @@ import express from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import axios from "axios";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
+import { logAudit } from "./auditLog.js";
 
 const router = express.Router();
 
@@ -338,6 +339,11 @@ router.post("/complete", authGuard, completeLimiter, async (req, res) => {
     } catch (err) {
       console.error("[digilocker] firestore persist failed", err?.message || err);
     }
+
+    logAudit(req, "aadhaar_verified", {
+      via: "digilocker",
+      maskedAadhaar: maskAadhaar(aadhaarNumber),
+    });
 
     return res.json({
       verified: true,

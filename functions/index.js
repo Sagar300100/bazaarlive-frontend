@@ -16,6 +16,7 @@ import profileRouter from "./profileRouter.js";
 import digilockerRouter from "./digilockerRouter.js";
 import bankRouter from "./bankRouter.js";
 import panRouter from "./panRouter.js";
+import authRouter from "./authRouter.js";
 import { firebaseAdmin } from "./firebaseAdmin.js";
 
 // Secrets must be declared so Firebase injects them into the runtime env.
@@ -155,6 +156,7 @@ app.use("/api/bank", bankRouter);
 app.use("/api/pan", panRouter);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/profile", profileRouter);
+app.use("/api/auth", authRouter);
 
 /* ── Error handler ── */
 app.use((err, _req, res, _next) => {
