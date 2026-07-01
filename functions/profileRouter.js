@@ -1,6 +1,7 @@
 import express from "express";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 import { logAudit } from "./auditLog.js";
+import { requireEmailVerified } from "./emailVerifiedGuard.js";
 
 const router = express.Router();
 
@@ -251,7 +252,7 @@ router.get("/seller-onboarding", authGuard, async (req, res) => {
 // POST /api/profile/seller-onboarding/store  { storeName, storeHandle }
 // Saves step 1 of the wizard. storeHandle is unique across sellers and
 // claimed via the same usernames/ collection used for buyer handles.
-router.post("/seller-onboarding/store", authGuard, async (req, res) => {
+router.post("/seller-onboarding/store", authGuard, requireEmailVerified, async (req, res) => {
   const storeName = String(req.body?.storeName || "").trim();
   const storeHandle = String(req.body?.storeHandle || "").toLowerCase().trim();
 
@@ -315,7 +316,7 @@ router.post("/seller-onboarding/store", authGuard, async (req, res) => {
 // POST /api/profile/seller-onboarding/complete
 // Final gate — only succeeds if all 3 prior steps are done. Marks the
 // seller as fully onboarded so the seller dashboard can let them in.
-router.post("/seller-onboarding/complete", authGuard, async (req, res) => {
+router.post("/seller-onboarding/complete", authGuard, requireEmailVerified, async (req, res) => {
   const admin = firebaseAdmin();
   const db = admin.firestore();
   const userRef = db.doc(`users/${req.user.uid}`);

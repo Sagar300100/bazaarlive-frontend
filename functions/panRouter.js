@@ -4,6 +4,7 @@ import axios from "axios";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 import { encryptField } from "./kms.js";
 import { logAudit } from "./auditLog.js";
+import { requireEmailVerified } from "./emailVerifiedGuard.js";
 
 const router = express.Router();
 
@@ -123,7 +124,7 @@ const verifyLimiter = rateLimit({
  * Hits Sandbox PAN verify, matches the returned name with Aadhaar name on
  * file, persists the result to Firestore.
  */
-router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
+router.post("/verify", authGuard, requireEmailVerified, verifyLimiter, async (req, res) => {
   const pan = String(req.body?.pan || "").toUpperCase().replace(/\s+/g, "");
   if (!VALID_PAN.test(pan)) {
     return res.status(400).json({

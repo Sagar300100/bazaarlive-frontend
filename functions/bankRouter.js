@@ -2,6 +2,7 @@ import express from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import axios from "axios";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
+import { requireEmailVerified } from "./emailVerifiedGuard.js";
 
 const router = express.Router();
 
@@ -132,7 +133,7 @@ const verifyLimiter = rateLimit({
  * Performs Sandbox penny-drop, matches the returned name with the seller's
  * Aadhaar-verified name on file, persists the result to Firestore.
  */
-router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
+router.post("/verify", authGuard, requireEmailVerified, verifyLimiter, async (req, res) => {
   const accountNumber = String(req.body?.accountNumber || "").replace(/\s+/g, "");
   const ifsc = String(req.body?.ifsc || "").toUpperCase().replace(/\s+/g, "");
 

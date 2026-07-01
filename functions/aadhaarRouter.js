@@ -3,6 +3,7 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import axios from "axios";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 import { logAudit } from "./auditLog.js";
+import { requireEmailVerified } from "./emailVerifiedGuard.js";
 
 const router = express.Router();
 
@@ -196,7 +197,7 @@ const verifyOtpLimiter = rateLimit({
   keyGenerator: (req) => `${ipKeyGenerator(req)}:${req.body?.txnId || "missing"}`,
 });
 
-router.post("/send-otp", authGuard, sendOtpLimiter, async (req, res) => {
+router.post("/send-otp", authGuard, requireEmailVerified, sendOtpLimiter, async (req, res) => {
   const idNumber = compactNumber(req.body?.idNumber);
   const consent = Boolean(req.body?.consent);
 
@@ -236,7 +237,7 @@ router.post("/send-otp", authGuard, sendOtpLimiter, async (req, res) => {
   }
 });
 
-router.post("/verify-otp", authGuard, verifyOtpLimiter, async (req, res) => {
+router.post("/verify-otp", authGuard, requireEmailVerified, verifyOtpLimiter, async (req, res) => {
   const idNumber = compactNumber(req.body?.idNumber);
   const otp = compactNumber(req.body?.otp);
   const txnId = req.body?.txnId;

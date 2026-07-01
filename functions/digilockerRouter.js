@@ -3,6 +3,7 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import axios from "axios";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 import { logAudit } from "./auditLog.js";
+import { requireEmailVerified } from "./emailVerifiedGuard.js";
 
 const router = express.Router();
 
@@ -138,7 +139,7 @@ const completeLimiter = rateLimit({
  * POST /api/digilocker/init  (authed)
  * Creates a DigiLocker session at Sandbox and returns the URL to redirect to.
  */
-router.post("/init", authGuard, initLimiter, async (_req, res) => {
+router.post("/init", authGuard, requireEmailVerified, initLimiter, async (_req, res) => {
   try {
     const headers = await authHeaders();
     const consentExpiry = Date.now() + 24 * 60 * 60 * 1000;
@@ -176,7 +177,7 @@ router.post("/init", authGuard, initLimiter, async (_req, res) => {
  * Verifies the user finished consent at DigiLocker, pulls the signed Aadhaar
  * document, matches the name with the user's account, persists verification.
  */
-router.post("/complete", authGuard, completeLimiter, async (req, res) => {
+router.post("/complete", authGuard, requireEmailVerified, completeLimiter, async (req, res) => {
   const sessionId = String(req.body?.sessionId || "").trim();
   if (!sessionId) {
     return res.status(400).json({ error: "MISSING_SESSION_ID" });
