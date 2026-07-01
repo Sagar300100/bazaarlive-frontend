@@ -33,15 +33,42 @@ const app = express();
    firing on every request. */
 app.set("trust proxy", 1);
 
-/* ── CORS ── */
-const corsOrigins = (process.env.CORS_ORIGINS || "")
+/* ── CORS ──────────────────────────────────────────────────────
+   Fail-closed origin allowlist. We always start with the hardcoded
+   production hosts, then merge in whatever CORS_ORIGINS (comma-list)
+   adds — never allow "*". If CORS_ORIGINS is unset, we don't fall
+   back to `origin: true` (which would accept credentialed requests
+   from ANY site — the exact XSRF vector we're trying to close).
+
+   Localhost origins are included so `npm run dev` works against the
+   deployed Cloud Function without needing to redeploy for local work.
+*/
+const DEFAULT_CORS_ORIGINS = [
+  "https://anynall.com",
+  "https://www.anynall.com",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:5173",
+];
+const extraCorsOrigins = (process.env.CORS_ORIGINS || "")
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
+const corsOrigins = Array.from(new Set([...DEFAULT_CORS_ORIGINS, ...extraCorsOrigins]));
+
+const VERCEL_PREVIEW_HOST_RE = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
 
 app.use(
   cors({
-    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    origin(origin, callback) {
+      // Same-origin & tools like curl send no Origin header — allow.
+      if (!origin) return callback(null, true);
+      if (corsOrigins.includes(origin)) return callback(null, true);
+      // Vercel deploy previews get a per-deploy hostname. Allow the
+      // pattern but nothing else.
+      if (VERCEL_PREVIEW_HOST_RE.test(origin)) return callback(null, true);
+      return callback(new Error(`CORS_ORIGIN_DENIED:${origin}`), false);
+    },
     credentials: true,
   })
 );
