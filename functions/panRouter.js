@@ -2,6 +2,7 @@ import express from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import axios from "axios";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
+import { encryptField } from "./kms.js";
 
 const router = express.Router();
 
@@ -236,6 +237,19 @@ router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
     // since we know it now matches the PAN.
     const panName = aadhaarName;
 
+    // Wrap the full PAN with Cloud KMS before Firestore write. A leaked
+    // service account or misconfigured rule now yields ciphertext instead
+    // of plaintext PII. Masked version stays cleartext for UI display.
+    let panCiphertext = null;
+    try {
+      panCiphertext = await encryptField(pan);
+    } catch (err) {
+      console.error("[pan] KMS encrypt failed — aborting persist", err?.message || err);
+      // Do NOT fall back to plaintext storage. Better to fail the write
+      // than to silently regress the security posture.
+      return res.status(500).json({ error: "ENCRYPT_FAILED", message: "Could not securely store PAN. Please retry." });
+    }
+
     try {
       await admin
         .firestore()
@@ -244,7 +258,7 @@ router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
           {
             pan: {
               maskedPan: maskPan(pan),
-              fullPan: pan, // TODO: encrypt before launch
+              panCiphertext,
               holderName: panName,
               verified: true,
               verifiedAt: admin.firestore.FieldValue.serverTimestamp(),

@@ -224,9 +224,20 @@ router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
       });
     }
 
-    // Persist. Never store the full account number unencrypted — keep masked
-    // form + last 4 for display. Razorpay will get the full number later
-    // when we wire sub-merchant onboarding.
+    // Wrap the full account number with Cloud KMS before Firestore write.
+    // If encryption fails, we abort the persist rather than silently
+    // regressing to plaintext.
+    let accountCiphertext = null;
+    try {
+      accountCiphertext = await encryptField(accountNumber);
+    } catch (err) {
+      console.error("[bank] KMS encrypt failed — aborting persist", err?.message || err);
+      return res.status(500).json({ error: "ENCRYPT_FAILED", message: "Could not securely store bank account. Please retry." });
+    }
+
+    // Persist. Full account number is encrypted; masked version stays
+    // cleartext for UI display. Razorpay Route sub-merchant onboarding
+    // will decrypt on demand when we wire payouts.
     try {
       await admin
         .firestore()
@@ -234,7 +245,7 @@ router.post("/verify", authGuard, verifyLimiter, async (req, res) => {
         .set(
           {
             bankAccount: {
-              accountNumber: accountNumber, // TODO: move to encrypted field before launch
+              accountCiphertext,
               maskedAccount: maskAccount(accountNumber),
               ifsc,
               holderName: bankName,
