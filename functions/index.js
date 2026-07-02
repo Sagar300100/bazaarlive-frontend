@@ -130,19 +130,21 @@ app.use(perUserLimiter);
 /* ── App Check ──────────────────────────────────────────────────
    Mode is controlled by env var APP_CHECK_MODE:
 
-     "off"        — skip verification entirely (rollback lever if the
-                    client stops sending valid tokens).
-     "monitor"    — verify every token, log misses/failures, but
-                    always call next(). Default. Use while rolling out
-                    so we can see traffic in the Console without
-                    breaking real users.
-     "enforce"    — reject requests with missing or invalid tokens
-                    with HTTP 401. Flip once monitor logs look clean.
+     "off"        — skip verification entirely (hard rollback lever if the
+                    client ever stops sending valid tokens).
+     "monitor"    — verify every token, log misses/failures, but always
+                    call next(). Soft rollback: use to watch traffic
+                    without blocking real users.
+     "enforce"    — reject requests with missing or invalid tokens with
+                    HTTP 401. DEFAULT since Track H3 (the client now
+                    attaches X-Firebase-AppCheck on every API call). To
+                    roll back, set APP_CHECK_MODE=monitor (or off) in
+                    functions/.env and redeploy.
 
    Health checks (/health, /api/health) always bypass App Check so
    uptime probes work regardless of mode.
 */
-const APP_CHECK_MODE = (process.env.APP_CHECK_MODE || "monitor").toLowerCase();
+const APP_CHECK_MODE = (process.env.APP_CHECK_MODE || "enforce").toLowerCase();
 
 async function appCheckGuard(req, res, next) {
   // Uptime probes shouldn't need attestation.
