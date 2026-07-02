@@ -49,7 +49,7 @@
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "vite": "^8.1.3"
   },
   "_overrides_note": "uuid pinned to the patched line (GHSA-w5hq-g745-h8pq) across the firebase-admin/@google-cloud transitive chain — avoids a breaking firebase-admin@14 bump that firebase-functions does not yet peer-support. Revisit when firebase-functions allows admin@14.",
   "overrides": {
