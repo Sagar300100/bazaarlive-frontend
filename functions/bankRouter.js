@@ -124,7 +124,7 @@ const verifyLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `${ipKeyGenerator(req)}:${req.user?.uid || "anon"}`,
+  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${req.user?.uid || "anon"}`,
 });
 
 /**

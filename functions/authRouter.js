@@ -35,7 +35,7 @@ const revokeLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `${ipKeyGenerator(req)}:${req.user?.uid || "anon"}`,
+  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${req.user?.uid || "anon"}`,
 });
 
 const router = express.Router();

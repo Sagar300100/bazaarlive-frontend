@@ -186,7 +186,7 @@ const sendOtpLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) =>
-    `${ipKeyGenerator(req)}:${maskId(compactNumber(req.body?.idNumber || ""))}`,
+    `${ipKeyGenerator(req.ip)}:${maskId(compactNumber(req.body?.idNumber || ""))}`,
 });
 
 const verifyOtpLimiter = rateLimit({
@@ -194,7 +194,7 @@ const verifyOtpLimiter = rateLimit({
   max: 8,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `${ipKeyGenerator(req)}:${req.body?.txnId || "missing"}`,
+  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${req.body?.txnId || "missing"}`,
 });
 
 router.post("/send-otp", authGuard, requireEmailVerified, sendOtpLimiter, async (req, res) => {

@@ -13,7 +13,7 @@ import { requireEmailVerified } from "./emailVerifiedGuard.js";
 // abuse is capped per-account (not just per-IP) and unauthenticated abuse
 // still gets an IP-based cap.
 function keyByIpAndUid(req) {
-  return `${ipKeyGenerator(req)}:${req.user?.uid || "anon"}`;
+  return `${ipKeyGenerator(req.ip)}:${req.user?.uid || "anon"}`;
 }
 
 // Username lookup is cheap but can be spammed to enumerate handles.
@@ -22,7 +22,7 @@ const checkUsernameLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => ipKeyGenerator(req),
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
 });
 
 // Username claim is a one-time action per user. 5/hour is well above any

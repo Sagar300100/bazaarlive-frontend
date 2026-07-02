@@ -8,7 +8,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import express from "express";
 import cors from "cors";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 import aadhaarRouter from "./aadhaarRouter.js";
 import analyticsRouter from "./analyticsRouter.js";
@@ -119,7 +119,7 @@ const perUserLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => {
     const uid = keyFromAuthHeader(req);
-    return uid ? `uid:${uid}` : `ip:${req.ip}`;
+    return uid ? `uid:${uid}` : `ip:${ipKeyGenerator(req.ip)}`;
   },
   skip: (req) =>
     req.path === "/health" || req.path === "/api/health",
