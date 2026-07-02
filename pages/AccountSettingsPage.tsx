@@ -15,7 +15,7 @@ import AddressesPanel from "../components/settings/AddressesPanel";
 import AccountPanel from "../components/settings/AccountPanel";
 
 // API helpers
-import { saveMyUpi, revokeAllSessions } from "../services/api";
+import { saveMyUpi, revokeAllSessions, deleteAccount } from "../services/api";
 
 type SettingsPage =
   | "general"
@@ -74,6 +74,13 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({
   const [securityMessage, setSecurityMessage] = useState<string | null>(null);
   const [revoking, setRevoking] = useState(false);
 
+  // Danger-zone (delete account) state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   // Simple client-side VPA validation
   const UPI_VPA_REGEX = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
 
@@ -111,6 +118,36 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({
       setSecurityMessage(err?.message || "Failed to revoke sessions");
     } finally {
       setRevoking(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setDeleteError(null);
+    if (deleteConfirm.trim().toUpperCase() !== "DELETE") {
+      setDeleteError('Type DELETE to confirm.');
+      return;
+    }
+    if (!deletePassword) {
+      setDeleteError("Enter your password to confirm.");
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteAccount(deletePassword);
+      // Account + all data erased and session cleared. Send them home;
+      // App's onAuthStateChanged will flip the UI to logged-out.
+      onNavigate("home");
+    } catch (err: any) {
+      const code = String(err?.code || "");
+      if (code.includes("wrong-password") || code.includes("invalid-credential")) {
+        setDeleteError("Incorrect password.");
+      } else if (String(err?.message || "").includes("RECENT_AUTH")) {
+        setDeleteError("Please re-enter your password and try again.");
+      } else {
+        setDeleteError(err?.message || "Could not delete account. Please try again.");
+      }
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -283,11 +320,79 @@ const AccountSettingsPage: React.FC<AccountSettingsPageProps> = ({
               </button>
             </section>
 
+            {/* Danger Zone — account deletion (DPDP right-to-erasure) */}
+            <section className="mb-8 p-6 rounded-2xl" style={{ background: "#FFFFFF", border: "1.5px solid rgba(220,38,38,0.25)", boxShadow: "0 2px 12px rgba(220,38,38,0.06)" }}>
+              <h2 className="text-xl font-bold mb-2" style={{ color: "#B91C1C" }}>Delete account</h2>
+              <p className="text-sm mb-3" style={{ color: "#7F1D1D" }}>
+                Permanently delete your account and erase all your data —
+                profile, KYC details, store, follows, and messages. This cannot
+                be undone.
+              </p>
+              <button
+                onClick={() => { setShowDeleteModal(true); setDeleteError(null); setDeletePassword(""); setDeleteConfirm(""); }}
+                className="px-5 py-2.5 rounded-lg text-white font-bold transition-colors"
+                style={{ background: "#DC2626" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#B91C1C"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#DC2626"; }}
+              >
+                Delete my account
+              </button>
+            </section>
+
             {/* Rest of account settings */}
             {renderContent()}
           </main>
         </div>
       </div>
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+            <h3 className="text-xl font-bold mb-2" style={{ color: "#B91C1C" }}>Delete your account?</h3>
+            <p className="text-sm mb-4" style={{ color: "#4A5568" }}>
+              This permanently erases your profile, KYC details, store, follows,
+              and messages. It cannot be undone. Enter your password and type
+              <span className="font-bold"> DELETE </span> to confirm.
+            </p>
+            <input
+              type="password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              placeholder="Your password"
+              className="w-full mb-3 px-3 py-2.5 rounded-lg outline-none focus:ring-2"
+              style={{ background: "#F8FAFC", color: NAVY, border: "1.5px solid #E2E8F0" }}
+              autoComplete="current-password"
+            />
+            <input
+              type="text"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder="Type DELETE"
+              className="w-full mb-3 px-3 py-2.5 rounded-lg outline-none focus:ring-2"
+              style={{ background: "#F8FAFC", color: NAVY, border: "1.5px solid #E2E8F0" }}
+            />
+            {deleteError && <p className="text-sm text-red-500 mb-3">{deleteError}</p>}
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                className="px-4 py-2.5 rounded-lg font-bold disabled:cursor-not-allowed"
+                style={{ background: "#E2E8F0", color: NAVY }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="px-4 py-2.5 rounded-lg text-white font-bold disabled:cursor-not-allowed"
+                style={{ background: deleting ? "#94a3b8" : "#DC2626" }}
+              >
+                {deleting ? "Deleting…" : "Delete forever"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

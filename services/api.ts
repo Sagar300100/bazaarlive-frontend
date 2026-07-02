@@ -41,6 +41,8 @@ import {
   applyActionCode,
   signOut,
   updateProfile,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
   User,
 } from "firebase/auth";
 
@@ -311,6 +313,30 @@ export async function logout() {
   try {
     await signOut(auth);
   } catch {}
+  return true;
+}
+
+/**
+ * Permanently delete the account and all personal data (DPDP right-to-erasure).
+ * Reauthenticates with the current password first — the server's
+ * requireRecentAuth needs a fresh auth_time — then triggers the server-side
+ * cascade (Firestore PII/ciphertext + follows + dm + shows + Auth record) and
+ * clears the local session. Throws on wrong password or server failure so the
+ * caller can show a message.
+ */
+export async function deleteAccount(password: string) {
+  const u = auth.currentUser;
+  if (!u || !u.email) {
+    throw new Error("You must be signed in to delete your account.");
+  }
+  // Fresh proof of identity for a destructive, irreversible action.
+  const cred = EmailAuthProvider.credential(u.email, password);
+  await reauthenticateWithCredential(u, cred);
+  await getIdToken(u, /*forceRefresh*/ true);
+  // Server cascades the Firestore erasure and deletes the Auth record.
+  await j("/api/account/delete", { method: "POST" }, /*needsAuth*/ true);
+  // The Auth user is gone now; clear whatever local state remains.
+  try { await signOut(auth); } catch {}
   return true;
 }
 
