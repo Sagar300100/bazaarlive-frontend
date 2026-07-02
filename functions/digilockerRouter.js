@@ -4,6 +4,7 @@ import axios from "axios";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 import { logAudit } from "./auditLog.js";
 import { requireEmailVerified } from "./emailVerifiedGuard.js";
+import { guardKycAttempt } from "./kycQuota.js";
 
 const router = express.Router();
 
@@ -139,7 +140,12 @@ const completeLimiter = rateLimit({
  * POST /api/digilocker/init  (authed)
  * Creates a DigiLocker session at Sandbox and returns the URL to redirect to.
  */
-router.post("/init", authGuard, requireEmailVerified, initLimiter, async (_req, res) => {
+router.post("/init", authGuard, requireEmailVerified, initLimiter, async (req, res) => {
+  // Denial-of-wallet guard: block already-verified re-verification and
+  // enforce a lifetime attempt cap before the paid DigiLocker session init.
+  const gate = await guardKycAttempt(req.user.uid, "aadhaar");
+  if (!gate.ok) return res.status(gate.status).json({ error: gate.error, message: gate.message });
+
   try {
     const headers = await authHeaders();
     const consentExpiry = Date.now() + 24 * 60 * 60 * 1000;

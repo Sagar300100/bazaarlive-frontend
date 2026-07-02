@@ -3,6 +3,7 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import axios from "axios";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 import { requireEmailVerified } from "./emailVerifiedGuard.js";
+import { guardKycAttempt } from "./kycQuota.js";
 
 const router = express.Router();
 
@@ -162,6 +163,11 @@ router.post("/verify", authGuard, requireEmailVerified, verifyLimiter, async (re
       message: "Please verify your Aadhaar via DigiLocker before adding a bank account.",
     });
   }
+
+  // Denial-of-wallet guard: block already-verified re-verification and
+  // enforce a lifetime attempt cap before the paid penny-drop.
+  const gate = await guardKycAttempt(req.user.uid, "bank");
+  if (!gate.ok) return res.status(gate.status).json({ error: gate.error, message: gate.message });
 
   try {
     const headers = await authHeaders();

@@ -5,6 +5,7 @@ import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 import { encryptField } from "./kms.js";
 import { logAudit } from "./auditLog.js";
 import { requireEmailVerified } from "./emailVerifiedGuard.js";
+import { guardKycAttempt } from "./kycQuota.js";
 
 const router = express.Router();
 
@@ -172,6 +173,11 @@ router.post("/verify", authGuard, requireEmailVerified, verifyLimiter, async (re
         "We don't have your date of birth on file. Please enter it (as on your Aadhaar) and try again.",
     });
   }
+
+  // Denial-of-wallet guard: block already-verified re-verification and
+  // enforce a lifetime attempt cap before the paid Sandbox call.
+  const gate = await guardKycAttempt(req.user.uid, "pan");
+  if (!gate.ok) return res.status(gate.status).json({ error: gate.error, message: gate.message });
 
   try {
     const headers = await authHeaders();

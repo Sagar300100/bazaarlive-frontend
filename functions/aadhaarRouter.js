@@ -4,6 +4,7 @@ import axios from "axios";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 import { logAudit } from "./auditLog.js";
 import { requireEmailVerified } from "./emailVerifiedGuard.js";
+import { guardKycAttempt } from "./kycQuota.js";
 
 const router = express.Router();
 
@@ -204,6 +205,11 @@ router.post("/send-otp", authGuard, requireEmailVerified, sendOtpLimiter, async 
   if (!consent || !acceptsId(idNumber)) {
     return res.status(400).json({ error: "INVALID_INPUT" });
   }
+
+  // Denial-of-wallet guard: block already-verified re-verification and
+  // enforce a lifetime attempt cap before the paid OTP send.
+  const gate = await guardKycAttempt(req.user.uid, "aadhaar");
+  if (!gate.ok) return res.status(gate.status).json({ error: gate.error, message: gate.message });
 
   try {
     const headers = await authHeaders();
