@@ -1,4 +1,6 @@
 // services/profile.ts
+import { getAppCheckHeader } from "../src/firebase";
+
 const BASE =
   (import.meta as any).env?.VITE_API_BASE ||
   (import.meta as any).env?.VITE_API_URL ||
@@ -15,7 +17,10 @@ export async function fetchProfile(idToken?: string): Promise<ProfilePayload> {
   const url = `${BASE.replace(/\/$/, "")}/api/profile`;
   const res = await fetch(url, {
     credentials: "include",
-    headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+    headers: {
+      ...(await getAppCheckHeader()),
+      ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+    },
   });
   if (!res.ok) throw new Error(`Profile fetch failed: ${res.status}`);
   return (await res.json()) as ProfilePayload;
@@ -27,6 +32,7 @@ export async function updateProfile(payload: ProfilePayload, idToken?: string): 
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
+      ...(await getAppCheckHeader()),
       ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
     },
     credentials: "include",

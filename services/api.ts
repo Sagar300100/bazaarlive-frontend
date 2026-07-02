@@ -30,7 +30,7 @@ export interface ShowData {
 // =====================================================
 //                      IMPORTS
 // =====================================================
-import { auth } from "../src/firebase";
+import { auth, getAppCheckHeader } from "../src/firebase";
 import { getIdToken } from "firebase/auth";
 import {
   signInWithEmailAndPassword,
@@ -119,6 +119,9 @@ async function j<T = any>(
   const url = `${BASE}${path}`;
   const hdrs = {
     "Content-Type": "application/json",
+    // App Check attestation on every API call (authed or public) so the
+    // backend can enforce it. Non-fatal if unavailable — see getAppCheckHeader.
+    ...(await getAppCheckHeader()),
     ...(init?.headers || {}),
     ...(needsAuth ? await authHeaders() : {}),
   };
@@ -235,7 +238,9 @@ export async function login(email: string, password: string) {
 /** Check whether a username is free (best-effort; real check is on claim). */
 export async function checkUsername(username: string): Promise<{ available: boolean; reason?: string }> {
   try {
-    const res = await fetch(`${BASE}/api/profile/check-username?u=${encodeURIComponent(username)}`);
+    const res = await fetch(`${BASE}/api/profile/check-username?u=${encodeURIComponent(username)}`, {
+      headers: { ...(await getAppCheckHeader()) },
+    });
     if (!res.ok) return { available: false, reason: "CHECK_FAILED" };
     return await res.json();
   } catch {
@@ -277,7 +282,7 @@ export async function register(email: string, password: string, name?: string, u
       const token = await getIdToken(cred.user, /*forceRefresh*/ true);
       const r = await fetch(`${BASE}/api/profile/claim-username`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", ...(await getAppCheckHeader()), Authorization: `Bearer ${token}` },
         body: JSON.stringify({ username: cleanUsername }),
       });
       if (!r.ok) {

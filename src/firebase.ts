@@ -7,7 +7,12 @@ import {
   signOut,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+import {
+  initializeAppCheck,
+  ReCaptchaV3Provider,
+  getToken,
+  type AppCheck,
+} from "firebase/app-check";
 
 // ----------------------------------------------------
 // Firebase config from Vite env (.env.local)
@@ -39,6 +44,13 @@ export const app = initializeApp(firebaseConfig);
 // In dev, set FIREBASE_APPCHECK_DEBUG_TOKEN to a boolean before init to
 // generate a debug token you can whitelist in Firebase Console → App
 // Check → Debug tokens. Without it, App Check would block localhost.
+// Exported so the custom API client can pull an attestation token and attach
+// it as the `X-Firebase-AppCheck` header. initializeAppCheck only auto-attaches
+// tokens to Firebase SDK traffic (Firestore / Auth / Storage / *callable*
+// functions) — our backend is an onRequest HTTP function reached via fetch(),
+// so the token must be attached manually (see getAppCheckHeader below).
+export let appCheck: AppCheck | null = null;
+
 if (typeof window !== "undefined") {
   const siteKey = import.meta.env.VITE_APP_CHECK_SITE_KEY as string | undefined;
 
@@ -50,7 +62,7 @@ if (typeof window !== "undefined") {
 
   if (siteKey) {
     try {
-      initializeAppCheck(app, {
+      appCheck = initializeAppCheck(app, {
         provider: new ReCaptchaV3Provider(siteKey),
         isTokenAutoRefreshEnabled: true,
       });
@@ -64,6 +76,24 @@ if (typeof window !== "undefined") {
     console.error(
       "[appcheck] VITE_APP_CHECK_SITE_KEY is not set. App Check tokens will NOT be attached to backend requests."
     );
+  }
+}
+
+/**
+ * Returns the App Check header for a fetch() to our custom HTTP API, or {}
+ * if App Check isn't initialized or the token fetch fails. Non-fatal by
+ * design: while the backend runs APP_CHECK_MODE=monitor a missing token is
+ * tolerated; once flipped to enforce, a scripted client with no valid token
+ * is exactly what should be rejected. The token is cached + auto-refreshed
+ * (isTokenAutoRefreshEnabled), so this is cheap on the hot path.
+ */
+export async function getAppCheckHeader(): Promise<Record<string, string>> {
+  if (!appCheck) return {};
+  try {
+    const { token } = await getToken(appCheck, /* forceRefresh */ false);
+    return token ? { "X-Firebase-AppCheck": token } : {};
+  } catch {
+    return {};
   }
 }
 

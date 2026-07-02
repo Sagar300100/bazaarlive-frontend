@@ -1,5 +1,5 @@
 // services/analytics.ts
-import { auth } from "../src/firebase";
+import { auth, getAppCheckHeader } from "../src/firebase";
 import { getIdToken } from "firebase/auth";
 
 const BASE =
@@ -33,7 +33,7 @@ export async function fetchAnalyticsDashboard(range = "7d"): Promise<AnalyticsDa
   const url = `${BASE.replace(/\/$/, "")}/api/analytics/dashboard?range=${encodeURIComponent(range)}`;
   const res = await fetch(url, {
     credentials: "include",
-    headers: { ...(await authHeader()) },
+    headers: { ...(await authHeader()), ...(await getAppCheckHeader()) },
   });
   if (!res.ok) {
     throw new Error(`Analytics fetch failed: ${res.status}`);
