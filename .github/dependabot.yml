@@ -2,10 +2,16 @@
 # Covers both npm projects in this repo: the Vite frontend (+ legacy server/)
 # at the root, and the Cloud Functions backend under /functions.
 #
-# NOTE: version-update PRs are configured here, but Dependabot *security*
-# alerts/updates must also be toggled on at the repo level:
-#   GitHub → Settings → Code security → enable "Dependabot alerts" and
-#   "Dependabot security updates".
+# Policy: routine PRs are limited to grouped minor/patch bumps. MAJOR-version
+# bumps are ignored here because they carry breaking changes that need hands-on
+# testing (e.g. vite 6->8, express 4->5, firebase-admin 12->14 which
+# firebase-functions does not yet peer-support). Security fixes are NOT affected
+# by the ignore rules — Dependabot security updates bypass them, so genuine
+# vulnerabilities still get a PR automatically.
+#
+# NOTE: Dependabot *security* alerts/updates must also be toggled on at the repo
+# level: GitHub -> Settings -> Code security -> enable "Dependabot alerts" and
+# "Dependabot security updates".
 version: 2
 updates:
   # ── Frontend (root package.json: Vite app + legacy Express dev server) ──
@@ -17,6 +23,10 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
+    ignore:
+      # Skip major-version bumps in routine scans (breaking; upgrade manually).
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       # Batch low-risk minor/patch bumps into one PR to cut review noise.
       minor-and-patch:
@@ -34,6 +44,9 @@ updates:
     labels:
       - "dependencies"
       - "backend"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types:
