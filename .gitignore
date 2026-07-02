@@ -30,3 +30,18 @@ dist-ssr
 # Vercel
 .vercel/
 
+# Secrets / keys — never commit (*.local already covers .env.local)
+.env
+.env.*
+!.env.example
+# Google / Firebase service-account key files
+*serviceAccount*.json
+*service-account*.json
+*-adminsdk-*.json
+serviceAccountKey.json
+gcp-*.json
+# Private keys
+*.pem
+*.key
+*.p12
+
