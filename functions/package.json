@@ -4,7 +4,7 @@
   "type": "module",
   "main": "index.js",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "scripts": {
     "serve": "firebase emulators:start --only functions",
@@ -20,6 +20,10 @@
     "express-rate-limit": "^8.2.1",
     "firebase-admin": "^12.7.0",
     "firebase-functions": "^6.0.0"
+  },
+  "_overrides_note": "uuid pinned to the patched line (GHSA-w5hq-g745-h8pq) across the firebase-admin/@google-cloud transitive chain — avoids a breaking firebase-admin@14 bump that firebase-functions does not yet peer-support. Revisit when firebase-functions allows admin@14.",
+  "overrides": {
+    "uuid": "^11.1.1"
   },
   "private": true
 }
