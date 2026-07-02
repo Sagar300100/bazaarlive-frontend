@@ -38,8 +38,18 @@ export async function logAudit(req, action, details = {}) {
     // Client IP is trustworthy because we run app.set("trust proxy", 1)
     // in functions/index.js, so req.ip resolves to the real client
     // rather than the Cloud Run proxy.
+    //
+    // `expireAt` is read by the Firestore TTL policy configured on
+    // auditLog.expireAt (Firebase Console → Firestore → Time to live).
+    // Entries auto-delete ~24h after this timestamp. 90 days is the
+    // retention target — long enough for forensic sweeps, short enough
+    // to satisfy "don't retain personal data longer than needed".
+    const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+    const expireAt = admin.firestore.Timestamp.fromMillis(Date.now() + NINETY_DAYS_MS);
+
     const entry = {
       at: admin.firestore.FieldValue.serverTimestamp(),
+      expireAt,
       action,
       uid: req.user?.uid || null,
       ip: req.ip || null,
