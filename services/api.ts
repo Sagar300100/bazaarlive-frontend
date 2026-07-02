@@ -147,6 +147,15 @@ export async function sessionMe(): Promise<{
   return j("/api/auth/me", { method: "GET" }, /*needsAuth*/ true);
 }
 
+/** Records the current device after sign-in; flags sign-ins from new devices. */
+export async function sessionCheck(): Promise<{
+  newDevice: boolean;
+  firstDevice?: boolean;
+  deviceLabel?: string;
+}> {
+  return j("/api/auth/session-check", { method: "POST" }, /*needsAuth*/ true);
+}
+
 // =====================================================
 //                     SHOWS API
 // =====================================================
@@ -231,6 +240,11 @@ export async function login(email: string, password: string) {
       "Please verify your email. A new verification link was sent to your inbox."
     );
   }
+
+  // Best-effort login-anomaly check — records this device and flags sign-ins
+  // from a device we've never seen. Fire-and-forget so it never slows or
+  // blocks sign-in.
+  sessionCheck().catch(() => {});
 
   return { id: u.uid, email: u.email || "" };
 }
