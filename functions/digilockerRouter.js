@@ -171,6 +171,25 @@ router.post("/init", authGuard, requireEmailVerified, initLimiter, async (req, r
         message: "DigiLocker did not return a session URL.",
       });
     }
+
+    // Bind this session to the initiating user. /complete reads this back
+    // keyed by the verified uid, so a session id the caller didn't start
+    // (replay / hijack / cross-account reuse) can't be completed. Fail
+    // closed: without the binding persisted, /complete would reject anyway.
+    try {
+      const admin = firebaseAdmin();
+      await admin.firestore().doc(`users/${req.user.uid}`).set(
+        {
+          pendingDigilockerSessionId: sessionId,
+          pendingDigilockerAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.error("[digilocker] session bind persist failed", err?.message || err);
+      return res.status(500).json({ error: "INIT_BIND_FAILED", message: "Could not start DigiLocker. Please retry." });
+    }
+
     return res.json({ sessionId, authUrl });
   } catch (error) {
     return handleUpstreamError(error, res, "DIGILOCKER_INIT");
@@ -187,6 +206,25 @@ router.post("/complete", authGuard, requireEmailVerified, completeLimiter, async
   const sessionId = String(req.body?.sessionId || "").trim();
   if (!sessionId) {
     return res.status(400).json({ error: "MISSING_SESSION_ID" });
+  }
+
+  // Enforce that THIS user initiated THIS session (bound at /init). Read the
+  // caller's own doc, keyed by the verified uid — a session id the caller
+  // didn't start won't match. Done before any paid Sandbox call so a bogus
+  // session id also can't burn upstream quota.
+  const admin = firebaseAdmin();
+  try {
+    const snap = await admin.firestore().doc(`users/${req.user.uid}`).get();
+    const bound = snap.data()?.pendingDigilockerSessionId || "";
+    if (!bound || bound !== sessionId) {
+      return res.status(403).json({
+        error: "SESSION_MISMATCH",
+        message: "This DigiLocker session was not started by your account. Please restart verification.",
+      });
+    }
+  } catch (err) {
+    console.error("[digilocker] session bind check failed", err?.message || err);
+    return res.status(503).json({ error: "BIND_CHECK_FAILED", message: "Could not verify session. Please retry." });
   }
 
   try {
@@ -300,8 +338,7 @@ router.post("/complete", authGuard, requireEmailVerified, completeLimiter, async
       });
     }
 
-    // 3) Match name with account displayName.
-    const admin = firebaseAdmin();
+    // 3) Match name with account displayName. (admin declared above.)
     const userRecord = await admin.auth().getUser(req.user.uid);
     const accountName = userRecord.displayName || req.user.name || "";
 
@@ -340,6 +377,8 @@ router.post("/complete", authGuard, requireEmailVerified, completeLimiter, async
             aadhaarGender: gender || "",
             aadhaarAddress: address || "",
             aadhaarVerifiedVia: "digilocker",
+            // Consume the one-shot session binding so it can't be replayed.
+            pendingDigilockerSessionId: admin.firestore.FieldValue.delete(),
           },
           { merge: true }
         );

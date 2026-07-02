@@ -233,6 +233,23 @@ router.post("/send-otp", authGuard, requireEmailVerified, sendOtpLimiter, async 
       });
     }
 
+    // Bind this OTP reference to the initiating user. /verify-otp reads it
+    // back keyed by the verified uid, so a txnId the caller didn't request
+    // (replay / cross-account reuse) can't be verified. Fail closed.
+    try {
+      const admin = firebaseAdmin();
+      await admin.firestore().doc(`users/${req.user.uid}`).set(
+        {
+          pendingAadhaarOtpRef: String(referenceId),
+          pendingAadhaarOtpAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.error("[aadhaar] otp bind persist failed", err?.message || err);
+      return res.status(500).json({ error: "OTP_BIND_FAILED", message: "Could not start verification. Please retry." });
+    }
+
     return res.json({
       txnId: String(referenceId),
       maskedAadhaar: maskId(idNumber),
@@ -250,6 +267,24 @@ router.post("/verify-otp", authGuard, requireEmailVerified, verifyOtpLimiter, as
 
   if (!txnId || !otp || otp.length < 6 || !acceptsId(idNumber)) {
     return res.status(400).json({ error: "INVALID_INPUT" });
+  }
+
+  // Enforce that THIS user requested THIS OTP (bound at /send-otp). Read the
+  // caller's own doc, keyed by the verified uid — a txnId the caller didn't
+  // request won't match. Done before the paid Sandbox verify call.
+  const admin = firebaseAdmin();
+  try {
+    const snap = await admin.firestore().doc(`users/${req.user.uid}`).get();
+    const bound = snap.data()?.pendingAadhaarOtpRef || "";
+    if (!bound || bound !== String(txnId)) {
+      return res.status(403).json({
+        error: "SESSION_MISMATCH",
+        message: "This OTP request was not started by your account. Please restart verification.",
+      });
+    }
+  } catch (err) {
+    console.error("[aadhaar] otp bind check failed", err?.message || err);
+    return res.status(503).json({ error: "BIND_CHECK_FAILED", message: "Could not verify request. Please retry." });
   }
 
   try {
@@ -279,7 +314,7 @@ router.post("/verify-otp", authGuard, requireEmailVerified, verifyOtpLimiter, as
 
     // Fetch the user's registered display name from Firebase Auth.
     // If it isn't set we can't enforce a match — reject and ask user to add it.
-    const admin = firebaseAdmin();
+    // (admin declared above for the session-binding check.)
     const userRecord = await admin.auth().getUser(req.user.uid);
     const accountName = userRecord.displayName || req.user.name || "";
 
@@ -316,6 +351,8 @@ router.post("/verify-otp", authGuard, requireEmailVerified, verifyOtpLimiter, as
             aadhaarReferenceId: String(inner?.reference_id ?? txnId),
             aadhaarVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
             aadhaarNameOnRecord: aadhaarName,
+            // Consume the one-shot OTP binding so it can't be replayed.
+            pendingAadhaarOtpRef: admin.firestore.FieldValue.delete(),
           },
           { merge: true }
         );

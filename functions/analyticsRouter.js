@@ -1,4 +1,23 @@
 import express from "express";
+import { verifyIdToken } from "./firebaseAdmin.js";
+
+// Auth gate. Analytics is a per-seller dashboard: even though it currently
+// returns mock data, it must never be world-readable, otherwise the moment
+// real aggregates are wired in it becomes a cross-seller data leak. When real
+// data lands, scope every query to req.user.uid's OWN shows/orders — do not
+// trust any seller id from the request.
+async function authGuard(req, res, next) {
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+  if (!token) return res.status(401).json({ error: "AUTH_REQUIRED" });
+  try {
+    req.user = await verifyIdToken(token);
+    next();
+  } catch (err) {
+    console.warn("[analytics] auth failed", err?.message || err);
+    return res.status(401).json({ error: "AUTH_INVALID" });
+  }
+}
 
 // Mocked analytics payload to unblock the frontend until real data is wired.
 function buildMockDashboard(range = "7d") {
@@ -47,7 +66,7 @@ function buildMockDashboard(range = "7d") {
 const router = express.Router();
 
 // GET /api/analytics/dashboard?range=7d
-router.get("/dashboard", (req, res) => {
+router.get("/dashboard", authGuard, (req, res) => {
   const range = typeof req.query.range === "string" ? req.query.range : "7d";
   const payload = buildMockDashboard(range);
   return res.json(payload);
