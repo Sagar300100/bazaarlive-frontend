@@ -5,6 +5,7 @@ import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 import { logAudit } from "./auditLog.js";
 import { requireEmailVerified } from "./emailVerifiedGuard.js";
 import { guardKycAttempt } from "./kycQuota.js";
+import { reserveIdentity } from "./kycUniqueness.js";
 
 const router = express.Router();
 
@@ -360,6 +361,14 @@ router.post("/complete", authGuard, requireEmailVerified, completeLimiter, async
         accountName,
         aadhaarName,
       });
+    }
+
+    // Sybil guard: bind this Aadhaar to one account (only when the XML gave us
+    // a full 12-digit number; skip masked/partial to avoid false blocks).
+    const aadhaarDigits = String(aadhaarNumber || "").replace(/\s+/g, "");
+    if (/^\d{12}$/.test(aadhaarDigits)) {
+      const uniq = await reserveIdentity("aadhaar", aadhaarDigits, req.user.uid);
+      if (!uniq.ok) return res.status(uniq.status).json({ error: uniq.error, message: uniq.message });
     }
 
     // 4) Persist verification (mirrors aadhaarRouter shape; verifiedVia="digilocker").

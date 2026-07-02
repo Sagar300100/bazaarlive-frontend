@@ -158,6 +158,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── KYC IDENTITY HASHES ─────────────────────────────────
+    // Server-only. Peppered HMACs of Aadhaar/PAN/bank numbers used to
+    // enforce one-identity-per-account (kycUniqueness.js). Never client
+    // readable/writable — reading the set would let a client probe which
+    // documents are already registered.
+    match /kycIdentityHashes/{hash} {
+      allow read, write: if false;
+    }
+
     // ── DEFAULT DENY ────────────────────────────────────────
     // Any collection not explicitly matched above is server-only.
     match /{document=**} {

@@ -5,6 +5,7 @@ import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
 import { logAudit } from "./auditLog.js";
 import { requireEmailVerified } from "./emailVerifiedGuard.js";
 import { guardKycAttempt } from "./kycQuota.js";
+import { reserveIdentity } from "./kycUniqueness.js";
 
 const router = express.Router();
 
@@ -336,6 +337,14 @@ router.post("/verify-otp", authGuard, requireEmailVerified, verifyOtpLimiter, as
         accountName,
         aadhaarName,
       });
+    }
+
+    // Sybil guard: bind this Aadhaar to one account. Only when we have a full
+    // 12-digit number — a 16-digit VID is rotating and unreliable for dedupe,
+    // so we skip the reservation there rather than risk a false block.
+    if (/^\d{12}$/.test(idNumber)) {
+      const uniq = await reserveIdentity("aadhaar", idNumber, req.user.uid);
+      if (!uniq.ok) return res.status(uniq.status).json({ error: uniq.error, message: uniq.message });
     }
 
     // Persist verification status. We store the masked Aadhaar (not the full

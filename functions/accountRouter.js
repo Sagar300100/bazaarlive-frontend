@@ -145,7 +145,20 @@ router.post("/delete", authGuard, requireRecentAuth(), deleteLimiter, async (req
     console.error("[account] dm delete failed", err?.message || err);
   }
 
-  // 6. THE critical erasure — the user document holds the KMS ciphertext
+  // 6. KYC identity-uniqueness reservations (peppered HMACs of Aadhaar/PAN/
+  //    bank). Erasing them both satisfies right-to-erasure (they're a derived
+  //    identifier of the person) AND frees the identity so a future account
+  //    can re-verify with it after this one is gone.
+  try {
+    summary.identityHashes = await deleteQueryBatch(
+      db, db.collection("kycIdentityHashes").where("uid", "==", uid)
+    );
+  } catch (err) {
+    errors.push("identity_hashes");
+    console.error("[account] identity hashes delete failed", err?.message || err);
+  }
+
+  // 7. THE critical erasure — the user document holds the KMS ciphertext
   //    and all KYC PII.
   try {
     await db.doc(`users/${uid}`).delete();

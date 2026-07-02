@@ -2,8 +2,11 @@ import express from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import axios from "axios";
 import { verifyIdToken, firebaseAdmin } from "./firebaseAdmin.js";
+import { encryptField } from "./kms.js";
+import { logAudit } from "./auditLog.js";
 import { requireEmailVerified } from "./emailVerifiedGuard.js";
 import { guardKycAttempt } from "./kycQuota.js";
+import { reserveIdentity } from "./kycUniqueness.js";
 
 const router = express.Router();
 
@@ -231,6 +234,12 @@ router.post("/verify", authGuard, requireEmailVerified, verifyLimiter, async (re
         aadhaarName,
       });
     }
+
+    // Sybil guard: this bank account may back only one seller. Reserve it to
+    // this uid or reject if another account already claimed it. Done after the
+    // name match (so we know it's a real, matching account) and before persist.
+    const uniq = await reserveIdentity("bank", accountNumber, req.user.uid);
+    if (!uniq.ok) return res.status(uniq.status).json({ error: uniq.error, message: uniq.message });
 
     // Wrap the full account number with Cloud KMS before Firestore write.
     // If encryption fails, we abort the persist rather than silently

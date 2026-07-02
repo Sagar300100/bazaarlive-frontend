@@ -6,6 +6,7 @@ import { encryptField } from "./kms.js";
 import { logAudit } from "./auditLog.js";
 import { requireEmailVerified } from "./emailVerifiedGuard.js";
 import { guardKycAttempt } from "./kycQuota.js";
+import { reserveIdentity } from "./kycUniqueness.js";
 
 const router = express.Router();
 
@@ -239,6 +240,12 @@ router.post("/verify", authGuard, requireEmailVerified, verifyLimiter, async (re
           "The date of birth on this PAN doesn't match what you entered. Please check the DOB you provided.",
       });
     }
+
+    // Sybil guard: a PAN is legally one-per-person, so this is the strongest
+    // anti-multi-accounting control — reserve it to this uid or reject if
+    // another account already verified with it. After match, before persist.
+    const uniq = await reserveIdentity("pan", pan, req.user.uid);
+    if (!uniq.ok) return res.status(uniq.status).json({ error: uniq.error, message: uniq.message });
 
     // Sandbox's PAN endpoint doesn't return the actual name on the card —
     // it just confirms whether what we sent matches. Use the Aadhaar name

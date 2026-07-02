@@ -23,6 +23,8 @@ import { firebaseAdmin } from "./firebaseAdmin.js";
 // Secrets must be declared so Firebase injects them into the runtime env.
 const sandboxApiKey = defineSecret("SANDBOX_API_KEY");
 const sandboxApiSecret = defineSecret("SANDBOX_API_SECRET");
+// Server-only pepper for the KYC identity-uniqueness HMAC (kycUniqueness.js).
+const kycHashPepper = defineSecret("KYC_HASH_PEPPER");
 
 const app = express();
 
@@ -209,7 +211,7 @@ export const api = onRequest(
     region: "asia-south1",
     maxInstances: 10,
     invoker: "public",
-    secrets: [sandboxApiKey, sandboxApiSecret],
+    secrets: [sandboxApiKey, sandboxApiSecret, kycHashPepper],
   },
   app
 );
