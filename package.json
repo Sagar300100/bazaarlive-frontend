@@ -23,7 +23,7 @@
     "@react-three/postprocessing": "^3.0.4",
     "axios": "^1.7.9",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
+    "dotenv": "^17.4.2",
     "express": "^4.19.2",
     "express-rate-limit": "^8.2.1",
     "firebase": "^12.4.0",
